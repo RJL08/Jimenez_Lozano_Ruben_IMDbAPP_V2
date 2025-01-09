@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "767203788315",
+    "project_id": "jimenezlozanorubenimdbapp",
+    "storage_bucket": "jimenezlozanorubenimdbapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:767203788315:android:ca879f6181d7105c9fdabe",
+        "android_client_info": {
+          "package_name": "com.example.jimenez_lozano_ruben_imdbapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJD8if23ECC8FPlR08P5n8hTKnw5RY6mQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
