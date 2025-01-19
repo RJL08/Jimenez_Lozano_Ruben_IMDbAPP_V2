@@ -6,6 +6,8 @@ plugins {
 
 buildscript {
     repositories {
+        google() // Repositorio de Google
+        mavenCentral() // Repositorio central de Maven
 
     }
     dependencies {
@@ -16,6 +18,8 @@ buildscript {
 
 allprojects {
     repositories {
+        google() // Repositorio de Google
+        mavenCentral() // Repositorio central de Maven
 
     }
 }

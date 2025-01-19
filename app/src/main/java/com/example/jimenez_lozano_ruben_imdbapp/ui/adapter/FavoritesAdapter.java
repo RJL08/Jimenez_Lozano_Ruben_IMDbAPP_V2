@@ -2,6 +2,7 @@ package com.example.jimenez_lozano_ruben_imdbapp.ui.adapter;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteException;
 import android.util.Log;
@@ -15,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.example.jimenez_lozano_ruben_imdbapp.MovieDetailsActivity;
 import com.example.jimenez_lozano_ruben_imdbapp.R;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesManager;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
@@ -66,6 +68,13 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Favo
 
         // Vinculamos los datos de la película al ViewHolder
         holder.bind(movie);
+
+        // Clic corto para abrir los detalles de la película
+        holder.itemView.setOnClickListener(v -> {
+            Intent intent = new Intent(context, MovieDetailsActivity.class);
+            intent.putExtra("movie", movie); // Pasamos el objeto Movie como Parcelable
+            context.startActivity(intent);
+        });
 
         // Manejamos el  clic largo para eliminar de favoritos
         holder.itemView.setOnLongClickListener(v -> {

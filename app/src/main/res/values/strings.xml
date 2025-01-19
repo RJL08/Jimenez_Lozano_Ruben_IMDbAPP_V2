@@ -15,6 +15,8 @@
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="default_web_client_id">767203788315-kto4bjd8v6lnaavd5q2sudk24t0l83u2.apps.googleusercontent.com</string>
-
+    <string name="facebook_app_id">4022001221352288</string>
+    <string name="fb_login_protocol_scheme">fb4022001221352288</string>
+    <string name="facebook_client_token">f6c454dcc7837d94ddac8bb266c3547d</string>
 
 </resources>

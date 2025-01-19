@@ -63,9 +63,13 @@ dependencies {
     implementation (libs.retrofit)
     implementation (libs.converter.gson)
     implementation ("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation ("com.facebook.android:facebook-android-sdk:[8,9)")
+    implementation ("com.facebook.android:facebook-login:12.3.0")
+    implementation ("com.facebook.android:facebook-login:[8,9)")
     implementation(libs.recyclerview)
     annotationProcessor(libs.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation ("com.squareup.picasso:picasso:2.71828")
 }

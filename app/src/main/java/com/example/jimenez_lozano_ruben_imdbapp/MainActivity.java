@@ -4,16 +4,18 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.ViewGroup;
+import android.webkit.CookieManager;
+import android.webkit.CookieSyncManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 import com.bumptech.glide.Glide;
+import com.facebook.AccessToken;
+import com.facebook.login.LoginManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.material.navigation.NavigationView;
@@ -24,6 +26,11 @@ import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 import com.example.jimenez_lozano_ruben_imdbapp.databinding.ActivityMainBinding;
+import com.google.firebase.auth.FirebaseAuth;
+import com.squareup.picasso.Picasso;
+
+
+
 @SuppressWarnings("deprecation")
 
 
@@ -52,6 +59,9 @@ public class MainActivity extends AppCompatActivity {
         String userName = intent.getStringExtra("user_name");
         String userEmail = intent.getStringExtra("user_email");
         String userPhotoUrl = intent.getStringExtra("user_photo");
+        String providerId = intent.getStringExtra("provider");
+
+        mostrarDatosUsuario(userName, userEmail, userPhotoUrl);
 
         // Configuramos el NavigationView
         NavigationView navigationView = binding.navView;
@@ -78,45 +88,30 @@ public class MainActivity extends AppCompatActivity {
         TextView emailTextView = headerView.findViewById(R.id.user_email);
         Button logoutButton = headerView.findViewById(R.id.logout_button);
 
-        // Mostramos los datos del usuario en las vistas
         if (userName != null) {
             nameTextView.setText(userName);
         }
-        // Mostramos el correo electronico del usuario
         if (userEmail != null) {
             emailTextView.setText(userEmail);
-            Toast.makeText(this, "Welcome: " + userEmail, Toast.LENGTH_SHORT).show();
-            Log.d("MainActivity", "User Email: " + userEmail);
         }
-
         if (userPhotoUrl != null) {
-            // Usar Glide para cargar la imagen del usuario en el ImageView
-            Glide.with(this)
+            Picasso.get()
                     .load(userPhotoUrl)
                     .placeholder(R.drawable.ic_launcher_background) // Imagen por defecto
                     .error(R.drawable.ic_launcher_foreground) // Imagen de error
                     .into(profileImageView);
         }
+
         // Configuramos el boton de logout para cerrar sesion
         logoutButton.setOnClickListener(v -> {
-            // Limpiamos el estado de inicio de sesión en SharedPreferences
-            SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
-            // Eliminamos todas las preferencias
-            editor.clear();
-            // Confirmamos los cambios
-            editor.apply();
+            // Obtener el proveedor (Google o Facebook) desde SharedPreferences
+            // Obtener el proveedor (Google o Facebook) desde SharedPreferences
+            SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+            String logoutProviderId = prefs.getString("provider", ""); // Renombrar la variable
 
-            // Cerramos sesion con google
-            GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
-                    .addOnCompleteListener(task -> {
-                        // Regresamos a signinactivity
-                        Intent signOutIntent = new Intent(MainActivity.this, SigninActivity.class);
-                        signOutIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK); // Limpia la pila de actividades
-                        startActivity(signOutIntent);
-                        // Finalizamos mainactivity
-                        finish();
+            // Llamar al método realizarLogout con el proveedor correspondiente
+            realizarLogout(logoutProviderId);
                     });
-        });
 
         // Configuramos la barra de herramientas
         setSupportActionBar(binding.appBarMain.toolbar);
@@ -156,6 +151,85 @@ public class MainActivity extends AppCompatActivity {
 
             return false;
         });
+    }
+
+    /**
+     * Recupera los datos del usuario desde SharedPreferences.
+     */
+    private void mostrarDatosUsuario(String userName, String userEmail, String userPhotoUrl) {
+        // Configuramos el NavigationView
+        NavigationView navigationView = binding.navView;
+        View headerView = navigationView.getHeaderView(0);
+
+        // Inicializamos las vistas del encabezado
+        ImageView profileImageView = headerView.findViewById(R.id.imageView);
+        TextView nameTextView = headerView.findViewById(R.id.user_name);
+        TextView emailTextView = headerView.findViewById(R.id.user_email);
+
+        // Mostrar nombre y correo
+        nameTextView.setText(userName != null ? userName : "Nombre no disponible");
+        emailTextView.setText(userEmail != null ? userEmail : "Correo no disponible");
+
+        // Mostrar foto de perfil usando Picasso
+        Picasso.get()
+                .load(userPhotoUrl)
+                .placeholder(R.drawable.ic_launcher_background) // Imagen por defecto
+                .error(R.drawable.ic_launcher_foreground) // Imagen de error
+                .into(profileImageView);
+    }
+
+
+
+    private void finalizarSesion() {
+        // Cerrar sesión de Firebase
+        FirebaseAuth.getInstance().signOut();
+
+        // Limpiar SharedPreferences
+        SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
+        editor.clear();
+        editor.apply();
+
+        // Regresar a la pantalla de inicio de sesión
+        Intent intent = new Intent(MainActivity.this, SigninActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish(); // Finalizamos la actividad actual
+    }
+
+    /**
+     * Realiza un logout efectivo basado en el proveedor de inicio de sesión.************
+     */
+
+        private void realizarLogout(String providerId) {
+            if ("google.com".equals(providerId)) {
+                // Cerrar sesión de Google
+                GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .revokeAccess()
+                        .addOnCompleteListener(task -> finalizarSesion());
+            } else if ("facebook.com".equals(providerId)) {
+                // Cerrar sesión de Facebook
+                logoutFacebook();
+            } else {
+                // Otros proveedores o caso por defecto
+                finalizarSesion();
+            }
+        }
+
+    private void logoutFacebook() {
+        // Cerrar sesión del SDK de Facebook
+        LoginManager.getInstance().logOut();
+
+        // Limpiar el token de acceso actual
+        AccessToken.setCurrentAccessToken(null);
+
+        // Limpiar cookies asociadas al navegador
+        CookieSyncManager.createInstance(this);
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.removeAllCookies(null);
+        cookieManager.flush();
+
+        // Finalizar sesión en la app
+        finalizarSesion();
     }
 
     /**
