@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.ViewGroup;
@@ -15,6 +16,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
 import com.facebook.AccessToken;
+import com.facebook.FacebookSdk;
+import com.facebook.GraphRequest;
+import com.facebook.HttpMethod;
+import com.facebook.appevents.AppEventsLogger;
 import com.facebook.login.LoginManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
@@ -49,6 +54,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Inicializa el SDK de Facebook
+        FacebookSdk.sdkInitialize(getApplicationContext());
+
 
         // Inflamos el layout principal
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -184,6 +193,7 @@ public class MainActivity extends AppCompatActivity {
         // Cerrar sesión de Firebase
         FirebaseAuth.getInstance().signOut();
 
+
         // Limpiar SharedPreferences
         SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
         editor.clear();
@@ -216,20 +226,36 @@ public class MainActivity extends AppCompatActivity {
         }
 
     private void logoutFacebook() {
-        // Cerrar sesión del SDK de Facebook
-        LoginManager.getInstance().logOut();
+        if (AccessToken.getCurrentAccessToken() != null) {
+            // Revocar permisos del usuario mediante GraphRequest
+            new GraphRequest(
+                    AccessToken.getCurrentAccessToken(),
+                    "/me/permissions/",
+                    null,
+                    HttpMethod.DELETE,
+                    response -> {
+                        if (response != null && response.getError() == null) {
+                            // Cerrar sesión del SDK de Facebook
+                            LoginManager.getInstance().logOut();
 
-        // Limpiar el token de acceso actual
-        AccessToken.setCurrentAccessToken(null);
+                            // Limpiar cookies asociadas al navegador (para sesiones web)
+                            CookieManager cookieManager = CookieManager.getInstance();
+                            cookieManager.removeAllCookies(null);
+                            cookieManager.flush();
 
-        // Limpiar cookies asociadas al navegador
-        CookieSyncManager.createInstance(this);
-        CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.removeAllCookies(null);
-        cookieManager.flush();
-
-        // Finalizar sesión en la app
-        finalizarSesion();
+                            // Redirigir al usuario al inicio de sesión
+                            finalizarSesion();
+                        } else {
+                            // Manejar errores en la revocación de permisos
+                            // Puedes mostrar un mensaje o loguear el error
+                            Log.e("FacebookLogout", "Error al revocar permisos: " + response.getError());
+                        }
+                    }
+            ).executeAsync();
+        } else {
+            // Si no hay sesión activa, simplemente finaliza la sesión
+            finalizarSesion();
+        }
     }
 
     /**
