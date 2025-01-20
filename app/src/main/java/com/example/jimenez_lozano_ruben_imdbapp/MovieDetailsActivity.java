@@ -27,6 +27,8 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.bumptech.glide.Glide;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
+import com.example.jimenez_lozano_ruben_imdbapp.utils.IMDBApiClient;
+
 import org.asynchttpclient.AsyncHttpClient;
 import org.asynchttpclient.DefaultAsyncHttpClient;
 import org.json.JSONException;
@@ -132,32 +134,39 @@ public class MovieDetailsActivity extends AppCompatActivity {
      * @param movieId id de la película a buscar
      */
     private void fetchMovieDetails(String movieId) {
+        // Ejecutamos en un hilo separado para evitar bloquear la UI
         new Thread(() -> {
-            // Llamada a la API de IMDB
+            // Creamos una instancia de AsyncHttpClient para realizar la solicitud
             AsyncHttpClient client = new DefaultAsyncHttpClient();
             try {
-                // Construir la URL de la API con el ID de la película proporcionado
+                // Construimos la URL para la solicitud a la API
                 String url = "https://imdb-com.p.rapidapi.com/title/get-overview?tconst=" + movieId;
                 client.prepare("GET", url)
-                        .setHeader("x-rapidapi-key", "8c8a3cbdefmsh5b39dc7ade88a71p1ca1bdjsn245a12339ee4")
+                        .setHeader("x-rapidapi-key", IMDBApiClient.getApiKey())
                         .setHeader("x-rapidapi-host", "imdb-com.p.rapidapi.com")
                         .execute()
                         .toCompletableFuture()
                         .thenAccept(response -> {
-                            // Manejamos la respuesta de la API
+
                             if (response.getStatusCode() == 200) {
                                 try {
+                                    // Parseamos la respuesta JSON y actualizamos la UI
                                     String responseBody = response.getResponseBody();
                                     parseMovieDetails(responseBody);
                                 } catch (Exception e) {
                                     Log.e("API_ERROR", "Error al parsear detalles: " + e.getMessage());
                                 }
+                                // Si la respuesta es exitosa, actualizamos la UI con los detalles
+                            } else if (response.getStatusCode() == 429) { // Límite alcanzado
+                                Log.e("API_ERROR", "Límite de solicitudes alcanzado. Cambiando API Key.");
+                                IMDBApiClient.switchApiKey(); // Cambiar a la siguiente clave
+                                fetchMovieDetails(movieId); // Reintentar con la nueva clave
                             } else {
                                 Log.e("API_ERROR", "Error en la respuesta: " + response.getStatusCode());
                             }
                         })
-                        // Manejamos errores en la llamada a la API
                         .join();
+                // Si ocurre un error, lo registramos
             } catch (Exception e) {
                 Log.e("API_ERROR", "Error en la llamada: " + e.getMessage());
             } finally {

@@ -22,6 +22,8 @@ import com.example.jimenez_lozano_ruben_imdbapp.databinding.FragmentHomeBinding;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
 import com.example.jimenez_lozano_ruben_imdbapp.models.MovieOverviewResponse;
 import com.example.jimenez_lozano_ruben_imdbapp.ui.adapter.MovieAdapter;
+import com.example.jimenez_lozano_ruben_imdbapp.utils.IMDBApiClient;
+
 import org.asynchttpclient.AsyncHttpClient;
 import org.asynchttpclient.DefaultAsyncHttpClient;
 import org.json.JSONArray;
@@ -82,7 +84,7 @@ public class HomeFragment extends Fragment {
             try {
                 // Realizamos la solicitud a la API
                 client.prepare("GET", "https://imdb-com.p.rapidapi.com/title/get-top-meter?topMeterTitlesType=ALL")
-                        .setHeader("x-rapidapi-key", "8c8a3cbdefmsh5b39dc7ade88a71p1ca1bdjsn245a12339ee4")
+                        .setHeader("x-rapidapi-key", IMDBApiClient.getApiKey())
                         .setHeader("x-rapidapi-host", "imdb-com.p.rapidapi.com")
                         .execute()
                         .toCompletableFuture()
@@ -95,6 +97,10 @@ public class HomeFragment extends Fragment {
                                 } catch (Exception e) {
                                     Log.e("API_ERROR", "Error al parsear la respuesta: " + e.getMessage());
                                 }
+                            } else if (response.getStatusCode() == 429) { // Límite alcanzado
+                                Log.e("API_ERROR", "Límite de solicitudes alcanzado. Cambiando API Key.");
+                                IMDBApiClient.switchApiKey(); // Cambiar a la siguiente clave
+                                fetchTopMovies(); // Reintentar con la nueva clave
                             } else {
                                 Log.e("API_ERROR", "Error en la respuesta: " + response.getStatusCode());
                             }
@@ -214,7 +220,7 @@ public class HomeFragment extends Fragment {
 
       Call<MovieOverviewResponse> call = apiService.getMovieOverview(
               movie.getId(),
-              "8c8a3cbdefmsh5b39dc7ade88a71p1ca1bdjsn245a12339ee4", // Clave API
+              IMDBApiClient.getApiKey(), // Clave API
               "imdb-com.p.rapidapi.com"
       );
 
@@ -239,6 +245,11 @@ public class HomeFragment extends Fragment {
                   Intent intent = new Intent(getContext(), MovieDetailsActivity.class);
                   intent.putExtra("movie", movie); // Pasar el objeto actualizado
                   startActivity(intent);
+
+              } else if (response.code() == 429) { // Límite alcanzado
+                  Log.e("API_ERROR", "Límite de solicitudes alcanzado. Cambiando API Key.");
+                  IMDBApiClient.switchApiKey(); // Cambiar a la siguiente clave
+                  fetchMovieOverview(movie); // Reintentar con la nueva clave
               } else {
                   Toast.makeText(getContext(), "No se pudieron cargar los detalles de la película", Toast.LENGTH_SHORT).show();
               }
@@ -279,7 +290,7 @@ public class HomeFragment extends Fragment {
 
         Call<MovieOverviewResponse> call = apiService.getMovieOverview(
                 movie.getId(),
-                "8c8a3cbdefmsh5b39dc7ade88a71p1ca1bdjsn245a12339ee4", // Clave API
+                IMDBApiClient.getApiKey(), // Clave API
                 "imdb-com.p.rapidapi.com"
         );
 
@@ -301,6 +312,11 @@ public class HomeFragment extends Fragment {
 
                     // Agregamos la pelicula a favoritos
                     addMovieToFavorites(movie);
+                    // Iniciamos la actividad con los detalles completos de la pelicula seleccionada en favoritos
+                } else if (response.code() == 429) { // Límite alcanzado
+                    Log.e("API_ERROR", "Límite de solicitudes alcanzado. Cambiando API Key.");
+                    IMDBApiClient.switchApiKey(); // Cambiar a la siguiente clave
+                    fetchMovieOverviewForFavorites(movie); // Reintentar con la nueva clave
                 } else {
                     Toast.makeText(getContext(), "No se pudieron cargar los detalles de la película", Toast.LENGTH_SHORT).show();
                 }
