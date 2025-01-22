@@ -10,6 +10,8 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+
+import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
@@ -33,8 +35,12 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthUserCollisionException;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import com.facebook.FacebookSdk;
@@ -81,7 +87,8 @@ public class SigninActivity extends AppCompatActivity {
                     prefs.getString("userName", ""),
                     prefs.getString("userEmail", ""),
                     prefs.getString("userPhoto", ""),
-                    prefs.getString("provider", "")
+                    prefs.getString("provider", ""),
+                    prefs.getString("userId", "")///**************************
             );
 
             return;
@@ -155,8 +162,6 @@ public class SigninActivity extends AppCompatActivity {
         }
     }
 
-
-
     /**
      * Manejar el token de acceso de Facebook para autenticar con Firebase.
      *
@@ -171,7 +176,7 @@ public class SigninActivity extends AppCompatActivity {
                         FirebaseUser currentUser = firebaseAuth.getCurrentUser();
                         if (currentUser != null) {
                             // Llamada a la API de Facebook para obtener datos del perfil
-                            fetchFacebookUserData(token);
+                            fetchFacebookUserData(token ,currentUser);
                         }
                     } else {
                         Toast.makeText(SigninActivity.this, "Autenticación fallida", Toast.LENGTH_SHORT).show();
@@ -179,7 +184,8 @@ public class SigninActivity extends AppCompatActivity {
                 });
     }
 
-    private void fetchFacebookUserData(AccessToken token) {
+
+    private void fetchFacebookUserData(AccessToken token, FirebaseUser  firebaseUser) {
         GraphRequest request = GraphRequest.newMeRequest(token, (object, response) -> {
             try {
                 if (object != null) {
@@ -204,10 +210,27 @@ public class SigninActivity extends AppCompatActivity {
                     }
 
                     // Guardar datos en SharedPreferences
-                    saveUserDataToPreferences(name, email, photoUrl, "facebook.com");
+                    saveUserDataToPreferences(name, email, photoUrl, "facebook.com", firebaseUser.getUid());//************************
+
+                    // Obtener la fecha y hora actual como login_time
+                    String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+
+                    // Guardar en la base de datos
+                    UsersManager usersManager = new UsersManager(this);
+                    boolean userAdded = usersManager.addUser(
+                            firebaseUser.getUid(), // user_id proporcionado por Firebase
+                            name,
+                            email != null ? email : "Correo no disponible", // Si el email es nulo
+                            loginTime,
+                            photoUrl
+                    );
+
+                    if (!userAdded) {
+                        Log.e("fetchFacebookUserData", "Error al guardar el usuario en la base de datos.");
+                    }
 
                     // Navegar a MainActivity
-                    navigateToMainActivity(name, email, photoUrl, "facebook.com");
+                    navigateToMainActivity(name, email, photoUrl, "facebook.com", firebaseUser.getUid());//*******************
                 } else {
                     Log.e("FacebookAPI", "El objeto devuelto por la API es nulo.");
                     Toast.makeText(this, "No se pudieron obtener los datos del perfil", Toast.LENGTH_SHORT).show();
@@ -268,7 +291,9 @@ public class SigninActivity extends AppCompatActivity {
                                                 user.getDisplayName(),
                                                 user.getEmail(),
                                                 photoUrl,
-                                                "google.com"
+                                                "google.com",
+                                                user.getUid()//********
+
                                         );
 
                                         // Navega a MainActivity
@@ -276,7 +301,8 @@ public class SigninActivity extends AppCompatActivity {
                                                 user.getDisplayName(),
                                                 user.getEmail(),
                                                 photoUrl,
-                                                providerId
+                                                providerId,
+                                                user.getUid()//********
 
 
                                         );
@@ -309,25 +335,47 @@ public class SigninActivity extends AppCompatActivity {
                         FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
                             String providerId = "google.com";
+
                             // Construir URL de foto de perfil para Google
                             String photoUrl = user.getPhotoUrl() != null
                                     ? user.getPhotoUrl().toString()
                                     : "https://lh3.googleusercontent.com/a/default-user";
+
 
                             // Guardar datos del usuario en SharedPreferences
                             saveUserDataToPreferences(
                                     user.getDisplayName(),
                                     user.getEmail(),
                                     photoUrl,
-                                    providerId
+                                    providerId,
+                                    user.getUid()//********
+
                             );
+
+                            // Obtener la fecha y hora actual formateada como login time
+                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+
+                            // Guardar en la base de datos
+                            UsersManager usersManager = new UsersManager(this);
+                            boolean userAdded = usersManager.addUser(
+                                    user.getUid(),             // user_id
+                                    user.getDisplayName(),     // name
+                                    user.getEmail(),           // email
+                                    loginTime,                 // login_time
+                                    photoUrl                   // image
+                            );
+
+                            if (!userAdded) {
+                                Log.e("firebaseAuthWithGoogle", "Error al guardar el usuario en la base de datos.");
+                            }
 
                             // Navegar a MainActivity
                             navigateToMainActivity(
                                     user.getDisplayName(),
                                     user.getEmail(),
                                     photoUrl,
-                                    "google.com"
+                                    "google.com",
+                                    user.getUid()
 
                             );
                         }
@@ -344,13 +392,14 @@ public class SigninActivity extends AppCompatActivity {
      *
      * @param
      */
-    private void saveUserDataToPreferences(String name, String email, String photoUrl, String provider) {
+    private void saveUserDataToPreferences(String name, String email, String photoUrl, String provider, String userId) {
         SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
         editor.putBoolean("isLoggedIn", true);
         editor.putString("userName", name);
         editor.putString("userEmail", email);
         editor.putString("userPhoto", photoUrl);
         editor.putString("provider", provider);
+        editor.putString("userId", userId);//*******
         editor.apply();
     }
 
@@ -394,12 +443,13 @@ public class SigninActivity extends AppCompatActivity {
      * @param userEmail correo electronico del usuario
      * @param userPhoto url de la foto del usuario
      */
-    private void navigateToMainActivity(String userName, String userEmail, String userPhoto, String provider) {
+    private void navigateToMainActivity(String userName, String userEmail, String userPhoto, String provider, String userId) {
         Intent intent = new Intent(SigninActivity.this, MainActivity.class);
         intent.putExtra("user_name", userName);
         intent.putExtra("user_email", userEmail);
         intent.putExtra("user_photo", userPhoto);
         intent.putExtra("provider", provider);
+        intent.putExtra("user_id", userId);
         startActivity(intent);
         finish();
     }

@@ -340,7 +340,7 @@ public class HomeFragment extends Fragment {
         // Obtenemos el correo del usuario actual desde SharedPreferences y lo validamos
         SharedPreferences prefs = requireContext().getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
         String userEmail = prefs.getString("userEmail", ""); // Obtiene el correo del usuario
-
+        String userId = prefs.getString("userId", ""); // Obtiene el id del usuario************************
         if (userEmail.isEmpty()) {
             Toast.makeText(getContext(), "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
             return;
@@ -381,7 +381,8 @@ public class HomeFragment extends Fragment {
                 movie.getImageUrl(),        // URL de la imagen
                 movie.getReleaseYear(),     // Fecha de lanzamiento
                 movie.getRating(),          // Puntuación
-                movie.getOverview()         // Descripcion de la pelicula
+                movie.getOverview(),        // Descripcion de la pelicula
+                userId
         );
 
         if (isAdded) {

@@ -41,16 +41,18 @@ public class FavoritesManager {
      * @param overview    La descripción de la pelicula.
      * @return true si la pelicula se añadio correctamente, false en caso contrario.
      */
-    public boolean addFavorite(String id, String userEmail, String movieTitle, String movieImage, String releaseDate, String movieRating, String overview) {
+    public boolean addFavorite(String id, String userEmail, String movieTitle, String movieImage, String releaseDate, String movieRating, String overview, String userId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(FavoritesDatabaseHelper.COLUMN_ID, id);
+        values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);//********
         values.put(FavoritesDatabaseHelper.COLUMN_USER_EMAIL, userEmail);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE, movieTitle);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_IMAGE, movieImage);
         values.put(FavoritesDatabaseHelper.COLUMN_RELEASE_DATE, releaseDate);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_RATING, movieRating);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_OVERVIEW, overview);
+        values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);
 
         long result = db.insert(FavoritesDatabaseHelper.TABLE_NAME, null, values);
         db.close();
@@ -68,7 +70,7 @@ public class FavoritesManager {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         int rowsDeleted = db.delete(
                 FavoritesDatabaseHelper.TABLE_NAME,
-                FavoritesDatabaseHelper.COLUMN_USER_EMAIL + "=? AND " + FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE + "=?",
+                FavoritesDatabaseHelper.COLUMN_USER_ID + "=? AND " + FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE + "=?", //*******
                 new String[]{userEmail, movieTitle}
         );
         db.close();
@@ -87,7 +89,7 @@ public class FavoritesManager {
         return db.query(
                 FavoritesDatabaseHelper.TABLE_NAME,
                 null,
-                FavoritesDatabaseHelper.COLUMN_USER_EMAIL + " = ?",
+                FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",//******
                 new String[]{userEmail},
                 null, null, null
         );

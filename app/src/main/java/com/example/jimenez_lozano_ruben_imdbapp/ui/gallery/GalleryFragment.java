@@ -196,16 +196,16 @@ public class GalleryFragment extends Fragment {
     private void loadFavorites() {
         // Obtenemos el correo del usuario actual desde SharedPreferences
         SharedPreferences prefs = requireContext().getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
-        String userEmail = prefs.getString("userEmail", ""); // Obtiene el correo del usuario actual
-
-        if (userEmail.isEmpty()) {
+        //String userEmail = prefs.getString("userEmail", ""); // Obtiene el correo del usuario actual
+        String userId = prefs.getString("userId", ""); // Obtener el userId del usuario************
+        if (userId.isEmpty()) {
             Toast.makeText(getContext(), "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
             Log.e("GalleryFragment", "Error: Correo del usuario vacío");
             return;
         }
 
         // Cargamos favoritos del usuario
-        Cursor cursor = favoritesManager.getFavoritesCursor(userEmail);
+        Cursor cursor = favoritesManager.getFavoritesCursor(userId);
         // Si hay favoritos cargados los agregamos a la lista y notificamos al adaptador los cambios
         if (cursor != null && cursor.getCount() > 0) {
             favoriteList.clear();
@@ -213,7 +213,7 @@ public class GalleryFragment extends Fragment {
             adapter.notifyDataSetChanged(); // Actualizar el RecyclerView
             Log.d("GalleryFragment", "Favoritos cargados correctamente: " + favoriteList.size());
         } else {
-            Log.d("GalleryFragment", "No hay favoritos para el usuario: " + userEmail);
+            Log.d("GalleryFragment", "No hay favoritos para el usuario: " + userId);
             Toast.makeText(getContext(), "No tienes películas favoritas", Toast.LENGTH_SHORT).show();
         }
     }

@@ -1,8 +1,10 @@
 package com.example.jimenez_lozano_ruben_imdbapp;
 
 import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -15,6 +17,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
+import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
 import com.facebook.AccessToken;
 import com.facebook.FacebookSdk;
 import com.facebook.GraphRequest;
@@ -34,6 +37,9 @@ import com.example.jimenez_lozano_ruben_imdbapp.databinding.ActivityMainBinding;
 import com.google.firebase.auth.FirebaseAuth;
 import com.squareup.picasso.Picasso;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 
 @SuppressWarnings("deprecation")
@@ -190,12 +196,26 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void finalizarSesion() {
+
+        // Obtener el user_id del usuario actual desde SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+        String userId = prefs.getString("userId", "");
+
+        // Obtener el tiempo de logout actual
+        String logoutTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                .format(new Date());
+
+        // Actualizar la base de datos con el tiempo de logout
+        if (!userId.isEmpty()) {
+            updateLogoutTimeInDatabase(userId, logoutTime);
+        }
+
         // Cerrar sesión de Firebase
         FirebaseAuth.getInstance().signOut();
 
 
         // Limpiar SharedPreferences
-        SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
+        SharedPreferences.Editor editor = prefs.edit();
         editor.clear();
         editor.apply();
 
@@ -206,12 +226,50 @@ public class MainActivity extends AppCompatActivity {
         finish(); // Finalizamos la actividad actual
     }
 
+
+    private void updateLogoutTimeInDatabase(String userId, String logoutTime) {
+        // Instancia del helper para la base de datos de usuarios
+        UserDataBaseHelper dbHelper = new UserDataBaseHelper(this);
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        // Crear valores para actualizar
+        ContentValues values = new ContentValues();
+        values.put(UserDataBaseHelper.COLUMN_LOGOUT_TIME, logoutTime);
+
+        // Actualizar el tiempo de logout para el user_id correspondiente
+        int rowsUpdated = db.update(
+                UserDataBaseHelper.TABLE_NAME,
+                values,
+                UserDataBaseHelper.COLUMN_USER_ID + " = ?",
+                new String[]{userId}
+        );
+        if (rowsUpdated > 0) {
+            Log.d("Logout", "Logout time actualizado correctamente para user_id: " + userId);
+        } else {
+            Log.e("Logout", "Error al actualizar el logout time para user_id: " + userId);
+        }
+
+        // Cerrar la base de datos
+        db.close();
+    }
+
+
+
     /**
      * Realiza un logout efectivo basado en el proveedor de inicio de sesión.************
      */
 
         private void realizarLogout(String providerId) {
             if ("google.com".equals(providerId)) {
+                // Obtener el userId desde SharedPreferences
+                SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+                String userId = prefs.getString("userId", "");
+                String logoutTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+
+                // Registrar el logout_time en la base de datos
+                if (!userId.isEmpty()) {
+                    updateLogoutTimeInDatabase(userId, logoutTime);
+                }
                 // Cerrar sesión de Google
                 GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN)
                         .revokeAccess()
@@ -226,12 +284,21 @@ public class MainActivity extends AppCompatActivity {
         }
 
     private void logoutFacebook() {
+
+        AccessToken accessToken = AccessToken.getCurrentAccessToken();
+        if (accessToken == null || accessToken.isExpired()) {
+            Log.e("FacebookLogout", "El token de acceso de Facebook es inválido o ha caducado.");
+            finalizarSesion();
+            return;
+        }
         if (AccessToken.getCurrentAccessToken() != null) {
+
             // Revocar permisos del usuario mediante GraphRequest
             new GraphRequest(
                     AccessToken.getCurrentAccessToken(),
                     "/me/permissions/",
                     null,
+
                     HttpMethod.DELETE,
                     response -> {
                         if (response != null && response.getError() == null) {
