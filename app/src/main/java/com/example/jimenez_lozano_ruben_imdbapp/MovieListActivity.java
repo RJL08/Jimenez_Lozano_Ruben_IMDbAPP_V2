@@ -101,14 +101,14 @@ public class MovieListActivity extends AppCompatActivity {
                     try {
                         // Añadimos la pelicula a favoritos
                         boolean added = favoritesManager.addFavorite(
-                                movie.getId(),              // Nuevo argumento: ID de la película
-                                userId,
+                                movie.getId(),              // Nuevo argumento: ID de la películ
                                 userEmail,                  // Email del usuario
                                 movie.getTitle(),           // Título de la pelicula
                                 movie.getImageUrl(),        // URL de la imagen
                                 movie.getReleaseYear(),     // Fecha de lanzamiento
                                 movie.getRating(),          // Puntuacion
-                                movie.getOverview()        // Nuevo argumento: Descripción de la película
+                                movie.getOverview(),       // Nuevo argumento: Descripción de la película
+                                userId
 
                         );
 

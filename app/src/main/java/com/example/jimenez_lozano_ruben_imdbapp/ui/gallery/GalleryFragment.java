@@ -196,7 +196,7 @@ public class GalleryFragment extends Fragment {
     private void loadFavorites() {
         // Obtenemos el correo del usuario actual desde SharedPreferences
         SharedPreferences prefs = requireContext().getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
-        //String userEmail = prefs.getString("userEmail", ""); // Obtiene el correo del usuario actual
+        String userEmail = prefs.getString("userEmail", ""); // Obtiene el correo del usuario actual
         String userId = prefs.getString("userId", ""); // Obtener el userId del usuario************
         if (userId.isEmpty()) {
             Toast.makeText(getContext(), "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();

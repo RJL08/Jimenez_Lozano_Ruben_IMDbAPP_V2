@@ -123,8 +123,9 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Favo
             FavoritesManager favoritesManager = new FavoritesManager(context);
             SharedPreferences prefs = context.getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
             String userEmail = prefs.getString("userEmail", "");
+            String userId = prefs.getString("userId", "");///*********************
 
-            if (userEmail.isEmpty()) {
+            if (userId.isEmpty()) {
                 Toast.makeText(context, "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -139,7 +140,7 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Favo
             new Thread(() -> {
                 boolean isRemoved = false;
                 try {
-                    isRemoved = favoritesManager.removeFavorite(userEmail, movie.getTitle());
+                    isRemoved = favoritesManager.removeFavorite(userId, movie.getTitle());
                 } catch (SQLiteException e) {
                     ((Activity) context).runOnUiThread(() -> {
                         Toast.makeText(context, "Error en la base de datos: " + e.getMessage(), Toast.LENGTH_LONG).show();

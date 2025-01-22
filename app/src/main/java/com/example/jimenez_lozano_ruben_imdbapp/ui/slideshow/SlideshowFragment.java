@@ -3,6 +3,7 @@ package com.example.jimenez_lozano_ruben_imdbapp.ui.slideshow;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputFilter;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -201,6 +202,7 @@ public class SlideshowFragment extends Fragment {
                             movie.setReleaseYear(tmdbMovie.getReleaseDate());
                             movie.setOverview(tmdbMovie.getOverview());
                             movie.setRating(tmdbMovie.getVoteAverage() != 0.0 ? String.format("%.1f", tmdbMovie.getVoteAverage()) : "N/A");
+                            Log.d("Movie Mapping", "Movie mapped: " + movie.getTitle());
                             movies.add(movie);
                         }
 

@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
@@ -45,17 +46,29 @@ public class FavoritesManager {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(FavoritesDatabaseHelper.COLUMN_ID, id);
-        values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);//********
         values.put(FavoritesDatabaseHelper.COLUMN_USER_EMAIL, userEmail);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE, movieTitle);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_IMAGE, movieImage);
         values.put(FavoritesDatabaseHelper.COLUMN_RELEASE_DATE, releaseDate);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_RATING, movieRating);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_OVERVIEW, overview);
-        values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);
+        values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);//********
+
+        //**********
+        Log.d("addFavorite", "Insertando en la BD: " +
+                "id=" + id +
+                ", userId=" + userId +
+                ", userEmail=" + userEmail +
+                ", movieTitle=" + movieTitle +
+                ", movieImage=" + movieImage +
+                ", releaseDate=" + releaseDate +
+                ", movieRating=" + movieRating +
+                ", overview=" + overview);
+
 
         long result = db.insert(FavoritesDatabaseHelper.TABLE_NAME, null, values);
-        db.close();
+
+       db.close();
         // Devolvemos true si la inserción fue exitosaosa
         return result != -1;
     }
@@ -81,18 +94,21 @@ public class FavoritesManager {
     /**
      * Recuperamos mediante un cursor con las peliculas favoritas del usuario desde la base de datos.
      * Consiguiendo que cada usuario tenga su propia lista de fovirtos
-     * @param userEmail El correo del usuario actual.
+     * @param userId El id del usuario actual.
      * @return Un cursor con los registros de las películas favoritas.
      */
-    public Cursor getFavoritesCursor(String userEmail) {
+    public Cursor getFavoritesCursor(String userId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
+
         return db.query(
+
                 FavoritesDatabaseHelper.TABLE_NAME,
                 null,
                 FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",//******
-                new String[]{userEmail},
+                new String[]{userId},
                 null, null, null
         );
+
     }
 
     /**
