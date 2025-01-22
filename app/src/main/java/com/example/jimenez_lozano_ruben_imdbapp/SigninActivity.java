@@ -217,6 +217,10 @@ public class SigninActivity extends AppCompatActivity {
 
                     // Guardar en la base de datos
                     UsersManager usersManager = new UsersManager(this);
+                    Log.d("SigninActivity", "Guardando usuario: UID=" + firebaseUser.getUid() +//**************
+                            ", Name=" + name +
+                            ", Email=" + email +
+                            ", PhotoUrl=" + photoUrl);
                     boolean userAdded = usersManager.addUser(
                             firebaseUser.getUid(), // user_id proporcionado por Firebase
                             name,

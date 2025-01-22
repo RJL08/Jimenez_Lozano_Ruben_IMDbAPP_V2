@@ -3,7 +3,7 @@ package com.example.jimenez_lozano_ruben_imdbapp.database;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-
+import android.util.Log;
 
 
 public class UserDataBaseHelper extends SQLiteOpenHelper {
@@ -32,6 +32,7 @@ public class UserDataBaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
+        Log.d("UserDataBaseHelper", "Creando tabla de usuarios...");
         String createTable = "CREATE TABLE " + TABLE_NAME + " (" +
                 COLUMN_USER_ID + " TEXT PRIMARY KEY, " +
                 COLUMN_NAME + " TEXT NOT NULL, " +
@@ -42,6 +43,7 @@ public class UserDataBaseHelper extends SQLiteOpenHelper {
                 COLUMN_PHONE + " TEXT, " +
                 COLUMN_IMAGE + " TEXT);";
         db.execSQL(createTable);
+        Log.d("UserDataBaseHelper", "Tabla de usuarios creada exitosamente.");
     }
 
     @Override
