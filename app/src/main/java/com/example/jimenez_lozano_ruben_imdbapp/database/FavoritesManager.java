@@ -96,8 +96,11 @@ public class FavoritesManager {
         );
         db.close();
         // Sincronizar con Firestore
-
+        if (rowsDeleted > 0) {
+            // Sincronizar eliminación con Firestore en tiempo real
             new FavoritesSync().syncLocalToFirestore(context, dbHelper);
+        }
+
 
         return rowsDeleted > 0;
     }

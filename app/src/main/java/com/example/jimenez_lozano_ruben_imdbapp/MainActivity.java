@@ -64,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
         // Inicializa el SDK de Facebook
         FacebookSdk.sdkInitialize(getApplicationContext());
 
+        //llamada a la clase AppLifecycleManager
+
 
         // Inflamos el layout principal
         binding = ActivityMainBinding.inflate(getLayoutInflater());

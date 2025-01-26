@@ -109,7 +109,7 @@ public class UsersSync {
             } while (cursor.moveToNext());
             cursor.close();
         }
-        db.close();
+
     }
 
 
