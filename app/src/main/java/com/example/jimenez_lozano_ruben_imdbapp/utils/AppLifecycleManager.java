@@ -73,6 +73,8 @@ import java.util.Locale;
         editor.putBoolean(PREF_IS_LOGGED_IN, false);
         editor.apply();
 
+
+
         Log.d("AppLifecycleManager", "Logout registrado en la base de datos y SharedPreferences.");
     }
 

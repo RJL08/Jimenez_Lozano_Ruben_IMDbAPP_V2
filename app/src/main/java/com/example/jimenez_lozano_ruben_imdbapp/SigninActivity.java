@@ -3,7 +3,11 @@ package com.example.jimenez_lozano_ruben_imdbapp;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
+import android.util.Patterns;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
@@ -37,20 +41,13 @@ import com.google.firebase.auth.AuthCredential;
 
 import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthUserCollisionException;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
-
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-
 import com.facebook.FacebookSdk;
-import com.google.firebase.auth.UserInfo;
-
 import org.json.JSONObject;
 
 
@@ -67,6 +64,10 @@ public class SigninActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> signInLauncher;
     // Para manejar los callbacks de Facebook Login
     private CallbackManager callbackManager;
+    private EditText emailEditText;
+    private EditText passwordEditText;
+    private Button loginButton;
+    private Button registerButton;
 
 
     @Override
@@ -125,6 +126,12 @@ public class SigninActivity extends AppCompatActivity {
         // Configuramos el Toolbar
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        // Inicializamos las vistas de la actividad de inicio de sesion con Firebase
+        emailEditText = findViewById(R.id.emailEditText);
+        passwordEditText = findViewById(R.id.passwordEditText);
+        loginButton = findViewById(R.id.loginButton);
+        registerButton = findViewById(R.id.registerButton);
 
         // Configuramos el Toolbar
         if (getSupportActionBar() != null) {
@@ -185,7 +192,185 @@ public class SigninActivity extends AppCompatActivity {
         //if (getIntent().getBooleanExtra("logout", false)) {
 
        // }
+
+        configureLoginButton();
+        configureRegisterButton();
     }
+
+    /**
+     * Registra al usuario en Firebase Authentication.
+     * @param email Correo electrónico del usuario.
+     * @param password Contraseña del usuario.
+     */
+    private void registerUser(String email, String password) {
+        firebaseAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        FirebaseUser newUser = firebaseAuth.getCurrentUser();
+                        if (newUser != null) {
+                            saveUserDataToPreferences(newUser.getDisplayName(), newUser.getEmail(), null, "email", newUser.getUid());
+                            navigateToMainActivity(newUser.getDisplayName(), newUser.getEmail(), null, "email", newUser.getUid());
+                        }
+                    } else {
+                        Toast.makeText(SigninActivity.this, "Registration failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    /**
+     * Configuramos el botón de registro para validar y registrar al usuario.
+     */
+    private void configureRegisterButton() {
+        registerButton.setOnClickListener(v -> validateAndRegister());
+    }
+
+    /**
+     * Comprueba si el correo ya está registrado en Firebase.
+     * Si ya está registrado, solicita iniciar sesión. De lo contrario, registra al usuario.
+     * @param email Correo electrónico del usuario.
+     * @param password Contraseña del usuario.
+     */
+    private void checkEmailAndRegister(String email, String password) {
+        firebaseAuth.fetchSignInMethodsForEmail(email)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        boolean isEmailRegistered = task.getResult().getSignInMethods() != null &&
+                                !task.getResult().getSignInMethods().isEmpty();
+
+                        if (isEmailRegistered) {
+                            // Correo ya registrado
+                            Toast.makeText(SigninActivity.this, "Email already registered. Please log in.", Toast.LENGTH_SHORT).show();
+                        } else {
+                            // Registrar al usuario
+                            registerUser(email, password);
+                        }
+                    } else {
+                        Toast.makeText(SigninActivity.this, "Error validating email: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    /**
+     * Validamos los datos para el registro. Si los datos son válidos, intentamos registrar al usuario.
+     * Si el correo ya está registrado, pedimos al usuario que inicie sesión.
+     */
+    private void validateAndRegister() {
+        String email = emailEditText.getText().toString().trim();
+        String password = passwordEditText.getText().toString().trim();
+
+        // Validar si los campos están vacíos
+        if (TextUtils.isEmpty(email)) {
+            Toast.makeText(SigninActivity.this, "Please enter your email.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (TextUtils.isEmpty(password)) {
+            Toast.makeText(SigninActivity.this, "Please enter your password.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar si el email tiene formato válido
+        if (!isValidEmail(email)) {
+            Toast.makeText(SigninActivity.this, "Please enter a valid email.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar si la contraseña cumple con la longitud mínima
+        if (password.length() < 8) {
+            Toast.makeText(SigninActivity.this, "Password must be at least 8 characters long.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar si el email ya está registrado en Firebase
+        checkEmailAndRegister(email, password);
+    }
+
+    /**
+     * Configuramos el boton de inicio de sesion.
+     */
+    private void configureLoginButton() {
+        loginButton.setOnClickListener(v -> validateAndLogin());
+    }
+
+    /**
+     * Validamos los datos de inicio de sesion. Si los datos son validos, iniciamos sesion. De lo contrario, mostramos un mensaje de error.
+     */
+    private void validateAndLogin() {
+        String email = emailEditText.getText().toString().trim();
+        String password = passwordEditText.getText().toString().trim();
+
+        // Validar si los campos están vacíos
+        if (TextUtils.isEmpty(email)) {
+            Toast.makeText(SigninActivity.this, "Please enter your email.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (TextUtils.isEmpty(password)) {
+            Toast.makeText(SigninActivity.this, "Please enter your password.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar si el email tiene formato válido
+        if (!isValidEmail(email)) {
+            Toast.makeText(SigninActivity.this, "Please enter a valid email.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Validar si la contraseña cumple con la longitud mínima
+        if (password.length() < 8) {
+            Toast.makeText(SigninActivity.this, "Password must be at least 8 characters long.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Intentar iniciar sesión
+        loginOrRegisterUser(email, password);
+    }
+
+    /**
+     * Validamos si el email es valido. Si no lo es, mostramos un mensaje de error.
+     * @param email
+     * @return
+     */
+    private boolean isValidEmail(String email) {
+        return !TextUtils.isEmpty(email) && Patterns.EMAIL_ADDRESS.matcher(email).matches();
+    }
+
+    /**
+     * Iniciamos sesion o registramos al usuario si no está registrado.
+     * @param email
+     * @param password
+     */
+    private void loginOrRegisterUser(String email, String password) {
+        firebaseAuth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        // Inicio de sesión exitoso
+                        FirebaseUser user = firebaseAuth.getCurrentUser();
+                        if (user != null) {
+                            navigateToMainActivity(user.getDisplayName(), user.getEmail(), null, "email", user.getUid());
+                        }
+                    } else {
+                        // Registrar usuario si no está registrado
+                        firebaseAuth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener(createTask -> {
+                                    if (createTask.isSuccessful()) {
+                                        FirebaseUser newUser = firebaseAuth.getCurrentUser();
+                                        if (newUser != null) {
+                                            saveUserDataToPreferences(newUser.getDisplayName(), newUser.getEmail(),
+                                                    null, "email", newUser.getUid());
+                                            navigateToMainActivity(newUser.getDisplayName(), newUser.getEmail(),
+                                                    null, "email", newUser.getUid());
+                                        }
+                                    } else {
+                                        Toast.makeText(SigninActivity.this, "Registration failed: " + createTask.getException().getMessage(),
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    }
+                });
+    }
+
+
 
     /**
      * Manejar el token de acceso de Facebook para autenticar con Firebase.

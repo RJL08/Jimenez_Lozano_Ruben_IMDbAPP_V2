@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -18,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.bumptech.glide.Glide;
 import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.utils.AppLifecycleManager;
 import com.facebook.AccessToken;
 import com.facebook.FacebookSdk;
 import com.facebook.GraphRequest;
@@ -56,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     // Declaracion de variables
     private AppBarConfiguration mAppBarConfiguration;
     private ActivityMainBinding binding;
+    private AppLifecycleManager appLifecycleManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,7 +68,13 @@ public class MainActivity extends AppCompatActivity {
         FacebookSdk.sdkInitialize(getApplicationContext());
 
         //llamada a la clase AppLifecycleManager
+        // Inicializar AppLifecycleManager
+        appLifecycleManager = new AppLifecycleManager(this);
 
+        // Registrar AppLifecycleManager para escuchar eventos del ciclo de vida
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            registerActivityLifecycleCallbacks(appLifecycleManager);
+        }
 
         // Inflamos el layout principal
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -228,7 +237,11 @@ public class MainActivity extends AppCompatActivity {
         finish(); // Finalizamos la actividad actual
     }
 
-
+    /**
+     * Actualiza el tiempo de logout en la base de datos.
+     * @param userId
+     * @param logoutTime
+     */
     private void updateLogoutTimeInDatabase(String userId, String logoutTime) {
         // Instancia del helper para la base de datos de usuarios
         UserDataBaseHelper dbHelper = new UserDataBaseHelper(this);
