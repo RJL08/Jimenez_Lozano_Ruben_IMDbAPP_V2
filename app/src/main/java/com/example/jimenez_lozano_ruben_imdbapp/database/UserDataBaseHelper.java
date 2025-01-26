@@ -1,5 +1,6 @@
 package com.example.jimenez_lozano_ruben_imdbapp.database;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -50,6 +51,30 @@ public class UserDataBaseHelper extends SQLiteOpenHelper {
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
         onCreate(db);
+    }
+
+    public void updateLogoutTime(String userId, String logoutTime) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        // Crear un conjunto de valores para actualizar la columna
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_LOGOUT_TIME, logoutTime);
+
+        // Actualizar la base de datos para el usuario correspondiente
+        int rowsUpdated = db.update(
+                TABLE_NAME,
+                values,
+                COLUMN_USER_ID + " = ?",
+                new String[]{userId}
+        );
+
+        if (rowsUpdated > 0) {
+            Log.d("UserDataBaseHelper", "Logout time actualizado para userId: " + userId);
+        } else {
+            Log.e("UserDataBaseHelper", "Error al actualizar logout time para userId: " + userId);
+        }
+
+        db.close();
     }
 }
 

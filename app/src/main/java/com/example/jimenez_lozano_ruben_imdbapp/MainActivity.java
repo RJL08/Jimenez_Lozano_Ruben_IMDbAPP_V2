@@ -274,6 +274,10 @@ public class MainActivity extends AppCompatActivity {
                 GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN)
                         .revokeAccess()
                         .addOnCompleteListener(task -> finalizarSesion());
+                // Limpiar cookies asociadas al navegador (para sesiones web)
+                CookieManager cookieManager = CookieManager.getInstance();
+                cookieManager.removeAllCookies(null);
+                cookieManager.flush();
             } else if ("facebook.com".equals(providerId)) {
                 // Cerrar sesión de Facebook
                 logoutFacebook();

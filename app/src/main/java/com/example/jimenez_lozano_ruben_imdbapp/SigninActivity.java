@@ -11,7 +11,12 @@ import androidx.activity.result.contract.ActivityResultContracts;;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
+import com.example.jimenez_lozano_ruben_imdbapp.utils.AppLifecycleManager;
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
@@ -63,12 +68,14 @@ public class SigninActivity extends AppCompatActivity {
     // Para manejar los callbacks de Facebook Login
     private CallbackManager callbackManager;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         FacebookSdk.setIsDebugEnabled(true);
         FacebookSdk.addLoggingBehavior(LoggingBehavior.APP_EVENTS);
+
         // Inicializar Facebook SDK
 
         new Thread(() -> {
@@ -77,11 +84,29 @@ public class SigninActivity extends AppCompatActivity {
         }).start();
 
 
+            // Sincronizar usuarios
+            UsersSync usersSync = new UsersSync();
+            usersSync.syncLocalToFirestore(this, new UserDataBaseHelper(this));
+            usersSync.syncUsersFromFirestore(this);
+
+        // Sincronizar favoritos
+        FavoritesSync favoritesSync = new FavoritesSync();
+        favoritesSync.syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+
+
+
+        // Configurar el ciclo de vida con AppLifecycleManager solo para API >= 14
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            AppLifecycleManager appLifecycleManager = new AppLifecycleManager(this);
+            getApplication().registerActivityLifecycleCallbacks(appLifecycleManager);
+        }
+
+
         // Comprobamos si el usuario ya está registrado
         SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
         boolean isLoggedIn = prefs.getBoolean("isLoggedIn", false);
 
-        if (isLoggedIn) {
+        if (isLoggedIn ) {
             // Navegamos directamente al MainActivity
             navigateToMainActivity(
                     prefs.getString("userName", ""),
@@ -157,9 +182,9 @@ public class SigninActivity extends AppCompatActivity {
         });
 
         // Verificamos si se solicitó un logout**************
-        if (getIntent().getBooleanExtra("logout", false)) {
+        //if (getIntent().getBooleanExtra("logout", false)) {
 
-        }
+       // }
     }
 
     /**
@@ -184,7 +209,11 @@ public class SigninActivity extends AppCompatActivity {
                 });
     }
 
-
+    /**
+     * Llamada a la API de Facebook para obtener datos del perfil.
+     * @param token
+     * @param firebaseUser
+     */
     private void fetchFacebookUserData(AccessToken token, FirebaseUser  firebaseUser) {
         GraphRequest request = GraphRequest.newMeRequest(token, (object, response) -> {
             try {
@@ -221,10 +250,11 @@ public class SigninActivity extends AppCompatActivity {
                             ", Name=" + name +
                             ", Email=" + email +
                             ", PhotoUrl=" + photoUrl);
-                    boolean userAdded = usersManager.addUser(
+                    boolean userAdded = usersManager.addOrUpdateUser(
                             firebaseUser.getUid(), // user_id proporcionado por Firebase
                             name,
                             email != null ? email : "Correo no disponible", // Si el email es nulo
+                            UserDataBaseHelper.COLUMN_LOGIN_TIME,
                             loginTime,
                             photoUrl
                     );
@@ -361,10 +391,11 @@ public class SigninActivity extends AppCompatActivity {
 
                             // Guardar en la base de datos
                             UsersManager usersManager = new UsersManager(this);
-                            boolean userAdded = usersManager.addUser(
+                            boolean userAdded = usersManager.addOrUpdateUser(
                                     user.getUid(),             // user_id
                                     user.getDisplayName(),     // name
-                                    user.getEmail(),           // email
+                                    user.getEmail(),            // email
+                                    UserDataBaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,                 // login_time
                                     photoUrl                   // image
                             );
@@ -448,6 +479,10 @@ public class SigninActivity extends AppCompatActivity {
      * @param userPhoto url de la foto del usuario
      */
     private void navigateToMainActivity(String userName, String userEmail, String userPhoto, String provider, String userId) {
+        // Validar si userPhoto es nulo o vacío
+        if (userPhoto == null || userPhoto.trim().isEmpty()) {
+            userPhoto = "https://example.com/default-profile-image.png"; // URL de imagen predeterminada
+        }
         Intent intent = new Intent(SigninActivity.this, MainActivity.class);
         intent.putExtra("user_name", userName);
         intent.putExtra("user_email", userEmail);

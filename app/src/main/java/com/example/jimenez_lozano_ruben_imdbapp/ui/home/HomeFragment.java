@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.jimenez_lozano_ruben_imdbapp.MovieDetailsActivity;
 import com.example.jimenez_lozano_ruben_imdbapp.api.IMDBApiService;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesManager;
+import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.example.jimenez_lozano_ruben_imdbapp.databinding.FragmentHomeBinding;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
 import com.example.jimenez_lozano_ruben_imdbapp.models.MovieOverviewResponse;
@@ -72,6 +73,7 @@ public class HomeFragment extends Fragment {
         fetchTopMovies();
         // Devolvemos la vista
         return root;
+
     }
 
     /**
@@ -98,7 +100,7 @@ public class HomeFragment extends Fragment {
                                     Log.e("API_ERROR", "Error al parsear la respuesta: " + e.getMessage());
                                 }
                             } else if (response.getStatusCode() == 429) { // Límite alcanzado
-                                Log.e("API_ERROR", "Límite de solicitudes alcanzado. Cambiando API Key.");
+                              //  Log.e("API_ERROR", "Límite de solicitudes alcanzado. Cambiando API Key.");
                                 IMDBApiClient.switchApiKey(); // Cambiar a la siguiente clave
                                 fetchTopMovies(); // Reintentar con la nueva clave
                             } else {

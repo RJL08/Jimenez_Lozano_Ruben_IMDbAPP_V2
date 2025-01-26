@@ -24,9 +24,12 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import android.Manifest;
+
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesManager;
 import com.example.jimenez_lozano_ruben_imdbapp.databinding.FragmentGalleryBinding;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
 import com.example.jimenez_lozano_ruben_imdbapp.ui.adapter.FavoritesAdapter;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -52,9 +55,12 @@ public class GalleryFragment extends Fragment {
         // Inicializamos el ViewModel
         GalleryViewModel galleryViewModel = new ViewModelProvider(this).get(GalleryViewModel.class);
 
+
         // Inflamos el diseño usando ViewBinding
         binding = FragmentGalleryBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
+
+
 
         // Configuramos el RecyclerView
         recyclerView = binding.recyclerViewFavorites;

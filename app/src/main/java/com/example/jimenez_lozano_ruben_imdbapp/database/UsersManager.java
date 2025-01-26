@@ -2,14 +2,20 @@ package com.example.jimenez_lozano_ruben_imdbapp.database;
 
 import android.content.ContentValues;
 import android.content.Context;
+
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
+
+import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
 
 public class UsersManager {
 
     private UserDataBaseHelper dbHelper;
+    private Context context;
+
 
     public UsersManager(Context context) {
+        this.context = context;
         dbHelper = new UserDataBaseHelper(context);
     }
 
@@ -34,22 +40,32 @@ public class UsersManager {
         values.put(UserDataBaseHelper.COLUMN_IMAGE, image);
 
         long result = db.insert(UserDataBaseHelper.TABLE_NAME, null, values);
-        //db.close();
+        db.close();
         Log.d("UsersManager", "Usuario insertado: " + (result != -1));
+        // Sincronizar con Firestore
+        if (result != -1) {
+            new UsersSync().syncLocalToFirestore(context, dbHelper);
+        }
         return result != -1;
     }
 
-    public boolean addOrUpdateUser(String userId, String name, String email, String loginTime, String image) {
+
+
+
+    public boolean addOrUpdateUser(String userId, String name, String email, String  timeField, String timeValue, String image) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
-        // Intentar actualizar primero
         ContentValues values = new ContentValues();
         values.put(UserDataBaseHelper.COLUMN_NAME, name);
         values.put(UserDataBaseHelper.COLUMN_EMAIL, email);
-        values.put(UserDataBaseHelper.COLUMN_LOGIN_TIME, loginTime);
         values.put(UserDataBaseHelper.COLUMN_IMAGE, image);
 
-        // Actualizamos el usuario si ya existe
+        if (timeField.equals(UserDataBaseHelper.COLUMN_LOGIN_TIME)) {
+            values.put(UserDataBaseHelper.COLUMN_LOGIN_TIME, timeValue);
+        } else if (timeField.equals(UserDataBaseHelper.COLUMN_LOGOUT_TIME)) {
+            values.put(UserDataBaseHelper.COLUMN_LOGOUT_TIME, timeValue);
+        }
+
         int rowsUpdated = db.update(
                 UserDataBaseHelper.TABLE_NAME,
                 values,
@@ -58,14 +74,22 @@ public class UsersManager {
         );
 
         if (rowsUpdated == 0) {
-            // Si no se actualizó, insertamos el nuevo usuario
             values.put(UserDataBaseHelper.COLUMN_USER_ID, userId);
             long result = db.insert(UserDataBaseHelper.TABLE_NAME, null, values);
-            //db.close();
+            db.close();
+
+            if (result != -1) {
+                new UsersSync().syncLocalToFirestore(context, dbHelper); // Sincronizar con Firestore
+            }
             return result != -1;
         }
 
-        //db.close();
+        db.close();
+        new UsersSync().syncLocalToFirestore(context, dbHelper); // Sincronizar con Firestore
         return true;
     }
+
+
+
+
 }

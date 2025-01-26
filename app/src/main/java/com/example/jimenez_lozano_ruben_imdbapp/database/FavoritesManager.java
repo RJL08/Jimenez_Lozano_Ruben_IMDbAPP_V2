@@ -8,6 +8,7 @@ import android.util.Log;
 
 
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ public class FavoritesManager {
 
     // Declaramos el helper de la base de datos
     private FavoritesDatabaseHelper dbHelper;
+    private Context context;
 
     /**
      * Constructor que inicializa el gestor de favoritos con el contexto proporcionado.
@@ -28,6 +30,8 @@ public class FavoritesManager {
      * @param context El contexto de la aplicación o actividad.
      */
     public FavoritesManager(Context context) {
+
+        this.context = context;
         dbHelper = new FavoritesDatabaseHelper(context);
     }
 
@@ -69,6 +73,10 @@ public class FavoritesManager {
         long result = db.insert(FavoritesDatabaseHelper.TABLE_NAME, null, values);
 
        db.close();
+        // Sincronizar con Firestore
+
+            new FavoritesSync().syncLocalToFirestore(context, dbHelper);
+
         // Devolvemos true si la inserción fue exitosaosa
         return result != -1;
     }
@@ -87,6 +95,10 @@ public class FavoritesManager {
                 new String[]{userEmail, movieTitle}
         );
         db.close();
+        // Sincronizar con Firestore
+
+            new FavoritesSync().syncLocalToFirestore(context, dbHelper);
+
         return rowsDeleted > 0;
     }
 
