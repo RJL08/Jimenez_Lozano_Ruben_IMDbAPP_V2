@@ -191,8 +191,6 @@ public class SigninActivity extends AppCompatActivity {
         // Verificamos si se solicitó un logout**************
         //if (getIntent().getBooleanExtra("logout", false)) {
 
-       // }
-
         configureLoginButton();
         configureRegisterButton();
     }
@@ -208,14 +206,42 @@ public class SigninActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         FirebaseUser newUser = firebaseAuth.getCurrentUser();
                         if (newUser != null) {
-                            saveUserDataToPreferences(newUser.getDisplayName(), newUser.getEmail(), null, "email", newUser.getUid());
-                            navigateToMainActivity(newUser.getDisplayName(), newUser.getEmail(), null, "email", newUser.getUid());
+                            // Guardar usuario en la base de datos local
+                            UsersManager usersManager = new UsersManager(this);
+                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+                            usersManager.addUser(
+                                    newUser.getUid(),
+                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
+                                    newUser.getEmail(),
+                                    loginTime,
+                                    null // Si no hay foto, puedes dejarlo nulo o asignar una predeterminada
+                            );
+                            // Obtener la URL de la foto del usuario o dejarla como null si no existe
+                            String userPhoto = newUser.getPhotoUrl() != null ? newUser.getPhotoUrl().toString() : null;
+
+                            saveUserDataToPreferences(
+                                    newUser.getUid(),
+                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
+                                    newUser.getEmail(),
+                                    userPhoto, // Pasamos el valor de la foto aquí
+                                    "email"
+                            );
+
+                            // Navegar a MainActivity
+                            navigateToMainActivity(
+                                    newUser.getDisplayName(),
+                                    newUser.getEmail(),
+                                    null,
+                                    "email",
+                                    newUser.getUid()
+                            );
                         }
                     } else {
                         Toast.makeText(SigninActivity.this, "Registration failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
+
 
     /**
      * Configuramos el botón de registro para validar y registrar al usuario.
@@ -301,24 +327,24 @@ public class SigninActivity extends AppCompatActivity {
 
         // Validar si los campos están vacíos
         if (TextUtils.isEmpty(email)) {
-            Toast.makeText(SigninActivity.this, "Please enter your email.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(SigninActivity.this, "Por favor, introduzca su email.", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (TextUtils.isEmpty(password)) {
-            Toast.makeText(SigninActivity.this, "Please enter your password.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(SigninActivity.this, "Por favor, introduzca su contraseña.", Toast.LENGTH_SHORT).show();
             return;
         }
 
         // Validar si el email tiene formato válido
         if (!isValidEmail(email)) {
-            Toast.makeText(SigninActivity.this, "Please enter a valid email.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(SigninActivity.this, "Por favor, introduzca un email válido.", Toast.LENGTH_SHORT).show();
             return;
         }
 
         // Validar si la contraseña cumple con la longitud mínima
         if (password.length() < 8) {
-            Toast.makeText(SigninActivity.this, "Password must be at least 8 characters long.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(SigninActivity.this, "La contraseña debe tener al menos 8 caracteres y no más de 12.", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -344,22 +370,79 @@ public class SigninActivity extends AppCompatActivity {
         firebaseAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        // Inicio de sesión exitoso
                         FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
-                            navigateToMainActivity(user.getDisplayName(), user.getEmail(), null, "email", user.getUid());
+                            // Obtener la URL de la foto del usuario o dejarla como null si no existe
+                            String userPhoto = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : null;
+
+                            // Guardar o actualizar usuario en la base de datos local
+                            UsersManager usersManager = new UsersManager(this);
+                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+                            usersManager.addOrUpdateUser(
+                                    user.getUid(),
+                                    user.getDisplayName() != null ? user.getDisplayName() : "Usuario",
+                                    user.getEmail(),
+                                    UserDataBaseHelper.COLUMN_LOGIN_TIME,
+                                    loginTime,
+                                    userPhoto // Pasamos la foto al método
+                            );
+
+                            // Guardar datos en SharedPreferences
+                            saveUserDataToPreferences(
+                                    user.getUid(),
+                                    user.getDisplayName() != null ? user.getDisplayName() : "Usuario",
+                                    user.getEmail(),
+                                    userPhoto, // Pasamos el valor de la foto aquí
+                                    "email"
+                            );
+
+                            // Navegar a MainActivity
+                            navigateToMainActivity(
+                                    user.getDisplayName(),
+                                    user.getEmail(),
+                                    userPhoto, // Pasamos la foto al intent
+                                    "email",
+                                    user.getUid()
+                            );
                         }
                     } else {
-                        // Registrar usuario si no está registrado
+                        // Intentar registrar al usuario si no existe
                         firebaseAuth.createUserWithEmailAndPassword(email, password)
                                 .addOnCompleteListener(createTask -> {
                                     if (createTask.isSuccessful()) {
                                         FirebaseUser newUser = firebaseAuth.getCurrentUser();
                                         if (newUser != null) {
-                                            saveUserDataToPreferences(newUser.getDisplayName(), newUser.getEmail(),
-                                                    null, "email", newUser.getUid());
-                                            navigateToMainActivity(newUser.getDisplayName(), newUser.getEmail(),
-                                                    null, "email", newUser.getUid());
+                                            // Obtener la URL de la foto del usuario o dejarla como null si no existe
+                                            String userPhoto = newUser.getPhotoUrl() != null ? newUser.getPhotoUrl().toString() : null;
+
+                                            // Guardar usuario en la base de datos local
+                                            UsersManager usersManager = new UsersManager(this);
+                                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+                                            usersManager.addUser(
+                                                    newUser.getUid(),
+                                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
+                                                    newUser.getEmail(),
+                                                    loginTime,
+                                                    userPhoto // Pasamos la foto al método
+                                            );
+
+                                            // Guardar datos en SharedPreferences
+                                            saveUserDataToPreferences(
+                                                    newUser.getUid(),
+                                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
+                                                    newUser.getEmail(),
+                                                    userPhoto, // Pasamos el valor de la foto aquí
+                                                    "email"
+                                            );
+
+                                            // Navegar a MainActivity
+                                            navigateToMainActivity(
+                                                    newUser.getDisplayName(),
+                                                    newUser.getEmail(),
+                                                    userPhoto, // Pasamos la foto al intent
+                                                    "email",
+                                                    newUser.getUid()
+                                            );
                                         }
                                     } else {
                                         Toast.makeText(SigninActivity.this, "Registration failed: " + createTask.getException().getMessage(),
