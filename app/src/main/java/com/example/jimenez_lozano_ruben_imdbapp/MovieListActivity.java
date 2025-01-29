@@ -68,6 +68,10 @@ public class MovieListActivity extends AppCompatActivity {
                     String userEmail = prefs.getString("userEmail", "");
                     String userId = prefs.getString("userId", "");//********
 
+                    // Log para verificar los valores recuperados
+                    Log.d("DebugUserId", "userId recuperado sharedpreerences MovieListActivity: " + userId);
+                    Log.d("DebugUserEmail", "userEmail recuperado sharedpreerences MovieListActivity: " + userEmail);
+
                     if (userId.isEmpty()) {
                         Toast.makeText(this, "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
                         return;
@@ -99,6 +103,9 @@ public class MovieListActivity extends AppCompatActivity {
                     }
 
                     try {
+                        Log.d("DebugDetailActivity", "userId recuperado antes de añadir a favoritos: " + userId);
+                        Log.d("DebugHomeDetailActivity", "userEmail recuperado antes de añadir a favoritos: " + userEmail);
+
                         // Añadimos la pelicula a favoritos
                         boolean added = favoritesManager.addFavorite(
                                 movie.getId(),              // Nuevo argumento: ID de la películ

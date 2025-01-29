@@ -5,6 +5,10 @@ import com.example.jimenez_lozano_ruben_imdbapp.api.IMDBApiService;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+
+/**
+ * Clase para gestionar la API de IMDB.
+ */
 public class IMDBApiClient {
 
     private static final String BASE_URL = "https://imdb-com.p.rapidapi.com/";

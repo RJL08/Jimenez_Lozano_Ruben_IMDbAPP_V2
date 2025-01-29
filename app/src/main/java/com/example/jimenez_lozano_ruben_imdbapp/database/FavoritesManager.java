@@ -58,8 +58,8 @@ public class FavoritesManager {
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_OVERVIEW, overview);
         values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);//********
 
-        //**********
-        Log.d("addFavorite", "Insertando en la BD: " +
+
+        Log.d("ADDFAVORITE", "Insertando en la BD: " +
                 "id=" + id +
                 ", userId=" + userId +
                 ", userEmail=" + userEmail +
@@ -116,7 +116,7 @@ public class FavoritesManager {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
 
         return db.query(
-
+                // Nombre de la tabla
                 FavoritesDatabaseHelper.TABLE_NAME,
                 null,
                 FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",//******

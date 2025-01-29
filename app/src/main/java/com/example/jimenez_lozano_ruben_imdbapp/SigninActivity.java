@@ -1,5 +1,6 @@
 package com.example.jimenez_lozano_ruben_imdbapp;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -206,38 +207,46 @@ public class SigninActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         FirebaseUser newUser = firebaseAuth.getCurrentUser();
                         if (newUser != null) {
-                            // Guardar usuario en la base de datos local
+                            // Obtener los datos del usuario
+                            String userId = newUser.getUid();
+                            String userEmail = newUser.getEmail();
+                            String userName = newUser.getDisplayName() != null ? newUser.getDisplayName() : "";
+
+                            // Log para verificar los datos
+                            Log.d("RegisterUser", "UID: " + userId + ", Email: " + userEmail);
+
+                            // Validar los datos antes de guardar
+                            if (userId == null || userId.isEmpty() || userEmail == null || userEmail.isEmpty()) {
+                                Log.e("RegisterUser", "Error: Datos del usuario inválidos.");
+                                return;
+                            }
+
+                            // Guardar en la base de datos local
                             UsersManager usersManager = new UsersManager(this);
                             String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
-                            usersManager.addUser(
-                                    newUser.getUid(),
-                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
-                                    newUser.getEmail(),
+                            boolean userAdded = usersManager.addOrUpdateUser(
+                                    userId,
+                                    userName,
+                                    userEmail,
+                                    UserDataBaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,
-                                    null // Si no hay foto, puedes dejarlo nulo o asignar una predeterminada
-                            );
-                            // Obtener la URL de la foto del usuario o dejarla como null si no existe
-                            String userPhoto = newUser.getPhotoUrl() != null ? newUser.getPhotoUrl().toString() : null;
-
-                            saveUserDataToPreferences(
-                                    newUser.getUid(),
-                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
-                                    newUser.getEmail(),
-                                    userPhoto, // Pasamos el valor de la foto aquí
-                                    "email"
+                                    null // Sin foto por defecto
                             );
 
-                            // Navegar a MainActivity
-                            navigateToMainActivity(
-                                    newUser.getDisplayName(),
-                                    newUser.getEmail(),
-                                    null,
-                                    "email",
-                                    newUser.getUid()
-                            );
+                            if (!userAdded) {
+                                Log.e("RegisterUser", "Error al guardar el usuario en la base de datos local.");
+                            }
+
+
+
+                            // Guardar datos en SharedPreferences****************
+                            saveUserDataToPreferences(userName,  userEmail, null, null, userId);
+
+                            // Navegar a la pantalla principal
+                            navigateToMainActivity(userName, userEmail, null, "email", userId);
                         }
                     } else {
-                        Toast.makeText(SigninActivity.this, "Registration failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(SigninActivity.this, "Error al registrarse: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -358,7 +367,11 @@ public class SigninActivity extends AppCompatActivity {
      * @return
      */
     private boolean isValidEmail(String email) {
-        return !TextUtils.isEmpty(email) && Patterns.EMAIL_ADDRESS.matcher(email).matches();
+        if (email == null) return false;
+
+        // Expresión regular para validar el formato del correo.
+        String regexCorreo = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.(com|es)$";
+        return email.matches(regexCorreo);
     }
 
     /**
@@ -372,83 +385,41 @@ public class SigninActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
-                            // Obtener la URL de la foto del usuario o dejarla como null si no existe
-                            String userPhoto = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : null;
+                            // Obtener los datos del usuario
+                            String userId = user.getUid();
+                            String userEmail = user.getEmail();
+                            String userName = user.getDisplayName() != null ? user.getDisplayName() : "";
 
-                            // Guardar o actualizar usuario en la base de datos local
+                            // Validar datos antes de guardarlos
+                            if (userId == null || userId.isEmpty() || userEmail == null || userEmail.isEmpty()) {
+                                Log.e("LoginUser", "Error: Datos inválidos desde Firebase.");
+                                Toast.makeText(this, "Error al iniciar sesión. Inténtalo de nuevo.", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+
+                            // Guardar en la base de datos local
                             UsersManager usersManager = new UsersManager(this);
                             String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
                             usersManager.addOrUpdateUser(
-                                    user.getUid(),
-                                    user.getDisplayName() != null ? user.getDisplayName() : "Usuario",
-                                    user.getEmail(),
+                                    userId,
+                                    userName,
+                                    userEmail,
                                     UserDataBaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,
-                                    userPhoto // Pasamos la foto al método
+                                    null // Sin foto por defecto
                             );
+
+
 
                             // Guardar datos en SharedPreferences
-                            saveUserDataToPreferences(
-                                    user.getUid(),
-                                    user.getDisplayName() != null ? user.getDisplayName() : "Usuario",
-                                    user.getEmail(),
-                                    userPhoto, // Pasamos el valor de la foto aquí
-                                    "email"
-                            );
+                            saveUserDataToPreferences( userName, userEmail, null, null, userId);
 
-                            // Navegar a MainActivity
-                            navigateToMainActivity(
-                                    user.getDisplayName(),
-                                    user.getEmail(),
-                                    userPhoto, // Pasamos la foto al intent
-                                    "email",
-                                    user.getUid()
-                            );
+                            // Navegar a la pantalla principal
+                            navigateToMainActivity(userName, userEmail, null, null, userId);
                         }
                     } else {
                         // Intentar registrar al usuario si no existe
-                        firebaseAuth.createUserWithEmailAndPassword(email, password)
-                                .addOnCompleteListener(createTask -> {
-                                    if (createTask.isSuccessful()) {
-                                        FirebaseUser newUser = firebaseAuth.getCurrentUser();
-                                        if (newUser != null) {
-                                            // Obtener la URL de la foto del usuario o dejarla como null si no existe
-                                            String userPhoto = newUser.getPhotoUrl() != null ? newUser.getPhotoUrl().toString() : null;
-
-                                            // Guardar usuario en la base de datos local
-                                            UsersManager usersManager = new UsersManager(this);
-                                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
-                                            usersManager.addUser(
-                                                    newUser.getUid(),
-                                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
-                                                    newUser.getEmail(),
-                                                    loginTime,
-                                                    userPhoto // Pasamos la foto al método
-                                            );
-
-                                            // Guardar datos en SharedPreferences
-                                            saveUserDataToPreferences(
-                                                    newUser.getUid(),
-                                                    newUser.getDisplayName() != null ? newUser.getDisplayName() : "Usuario",
-                                                    newUser.getEmail(),
-                                                    userPhoto, // Pasamos el valor de la foto aquí
-                                                    "email"
-                                            );
-
-                                            // Navegar a MainActivity
-                                            navigateToMainActivity(
-                                                    newUser.getDisplayName(),
-                                                    newUser.getEmail(),
-                                                    userPhoto, // Pasamos la foto al intent
-                                                    "email",
-                                                    newUser.getUid()
-                                            );
-                                        }
-                                    } else {
-                                        Toast.makeText(SigninActivity.this, "Registration failed: " + createTask.getException().getMessage(),
-                                                Toast.LENGTH_SHORT).show();
-                                    }
-                                });
+                        registerUser(email, password);
                     }
                 });
     }
@@ -697,6 +668,7 @@ public class SigninActivity extends AppCompatActivity {
      */
     private void saveUserDataToPreferences(String name, String email, String photoUrl, String provider, String userId) {
         SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
+        Log.d("SaveUserData", "Guardando: userId=" + userId + ", userEmail=" + email);
         editor.putBoolean("isLoggedIn", true);
         editor.putString("userName", name);
         editor.putString("userEmail", email);

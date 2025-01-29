@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.Menu;
 import android.view.ViewGroup;
@@ -94,6 +95,8 @@ public class MainActivity extends AppCompatActivity {
         // Accedemos al encabezado del NavigationView
         View headerView = navigationView.getHeaderView(0);
         LinearLayout headerLayout = headerView.findViewById(R.id.header_container);
+
+
 
         // Obtenemos la altura del notch (si existe)
         int statusBarHeight = 0;
@@ -342,6 +345,37 @@ public class MainActivity extends AppCompatActivity {
             // Si no hay sesión activa, simplemente finaliza la sesión
             finalizarSesion();
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Verifica si se seleccionó "Edit User" desde el menú
+        if (item.getItemId() == R.id.action_edit_user) {
+            // Crear un Intent para abrir EditUserActivity
+            Intent intent = new Intent(MainActivity.this, EditUserActivity.class);
+
+            // Obtener los datos del usuario desde SharedPreferences (o de donde los tengas almacenados)
+            SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+            String userName = prefs.getString("user_name", "");
+            String userEmail = prefs.getString("user_email", "");
+            String userAddress = prefs.getString("user_address", "");
+            String userPhone = prefs.getString("user_phone", "");
+            String userProfileImageUrl = prefs.getString("user_profile_image_url", "");
+
+            // Pasar los datos al Intent
+            intent.putExtra("user_name", userName);
+            intent.putExtra("user_email", userEmail);
+            intent.putExtra("user_address", userAddress);
+            intent.putExtra("user_phone", userPhone);
+            intent.putExtra("user_profile_image_url", userProfileImageUrl);
+            // Iniciar la actividad EditUserActivity
+            startActivity(intent);
+
+
+            return true; // Indica que el ítem ha sido manejado
+        }
+
+        return super.onOptionsItemSelected(item); // Llamada por defecto para otros ítems
     }
 
     /**

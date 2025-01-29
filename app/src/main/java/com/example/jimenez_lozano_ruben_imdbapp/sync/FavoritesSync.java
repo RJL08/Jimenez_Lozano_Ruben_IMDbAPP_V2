@@ -4,12 +4,9 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
-
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,7 +65,7 @@ public class FavoritesSync {
                 })
                 .addOnFailureListener(e -> Log.e("FirestoreSync", "Error al obtener documentos de Firestore", e));
     }
-
+    // Método para sincronizar una sola película en Firestore
     private void syncSingleFavoriteToFirestore(Context context, FavoritesDatabaseHelper dbHelper, String movieId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.query(FavoritesDatabaseHelper.TABLE_NAME, null, FavoritesDatabaseHelper.COLUMN_ID + "=?", new String[]{movieId}, null, null, null);

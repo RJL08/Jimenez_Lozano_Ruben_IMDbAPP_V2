@@ -7,15 +7,23 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.core.view.MenuProvider;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Lifecycle;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.jimenez_lozano_ruben_imdbapp.EditUserActivity;
 import com.example.jimenez_lozano_ruben_imdbapp.MovieDetailsActivity;
+import com.example.jimenez_lozano_ruben_imdbapp.R;
 import com.example.jimenez_lozano_ruben_imdbapp.api.IMDBApiService;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesManager;
 import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
@@ -61,6 +69,7 @@ public class HomeFragment extends Fragment {
         binding = FragmentHomeBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
 
+
         // configuramos el recyclerview con un diseño de cuadricula
         recyclerView = binding.recyclerViewTopMovies;
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2)); // Grid de 2 columnas
@@ -69,12 +78,17 @@ public class HomeFragment extends Fragment {
         adapter = new MovieAdapter(movieList, this::onMovieClick, this::onMovieLongClick);
         recyclerView.setAdapter(adapter);
 
+
+
         // Llamamos al metodo que realiza la solicitud al API para cargar el Top 10
         fetchTopMovies();
+
         // Devolvemos la vista
         return root;
 
     }
+
+
 
     /**
      * Método para realizar la solicitud al API para cargar el Top 10 de peliculas.
@@ -343,7 +357,7 @@ public class HomeFragment extends Fragment {
         SharedPreferences prefs = requireContext().getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
         String userEmail = prefs.getString("userEmail", ""); // Obtiene el correo del usuario
         String userId = prefs.getString("userId", "");
-        Log.d("DebugUserId", "userId recuperado: " + userId);
+        Log.d("DebugUserId", "userId recuperado desde sharePreferences HomeFragment: " + userId);
 
         if (userEmail.isEmpty()) {
             Toast.makeText(getContext(), "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
@@ -377,16 +391,20 @@ public class HomeFragment extends Fragment {
             movie.setOverview("Descripción no disponible");
         }
 
+        // Log para verificar los valores recuperados
+        Log.d("DebugHomeFragment", "userId recuperado: " + userId);
+        Log.d("DebugHomeFragment", "userEmail recuperado: " + userEmail);
+
         // Agregamos la pelicula a favoritos
         boolean isAdded = favoritesManager.addFavorite(
                 movie.getId(),              // ID de la pelicula
-                userEmail,                  // Email del usuario
+                prefs.getString("userEmail", ""),                  // Email del usuario
                 movie.getTitle(),           // Titulo de la pelicula
                 movie.getImageUrl(),        // URL de la imagen
                 movie.getReleaseYear(),     // Fecha de lanzamiento
                 movie.getRating(),          // Puntuación
                 movie.getOverview(),        // Descripcion de la pelicula
-                userId
+                prefs.getString("userId", "")
         );
 
         if (isAdded) {
@@ -411,6 +429,9 @@ public class HomeFragment extends Fragment {
             addMovieToFavorites(movie);
         }
     }
+
+
+
 
     @Override
     public void onResume() {

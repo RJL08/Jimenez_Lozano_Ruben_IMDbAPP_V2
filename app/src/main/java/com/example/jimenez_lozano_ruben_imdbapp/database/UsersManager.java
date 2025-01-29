@@ -50,8 +50,16 @@ public class UsersManager {
     }
 
 
-
-
+    /**
+     * Actualiza un usuario existente en la tabla users.
+     * @param userId
+     * @param name
+     * @param email
+     * @param timeField
+     * @param timeValue
+     * @param image
+     * @return
+     */
     public boolean addOrUpdateUser(String userId, String name, String email, String  timeField, String timeValue, String image) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
