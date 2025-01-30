@@ -1,12 +1,11 @@
 package com.example.jimenez_lozano_ruben_imdbapp.sync;
 
-import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
-import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -23,20 +22,21 @@ public class UsersSync {
 
     private static final String TAG = "FirestoreSync";
 
-    public void syncLocalToFirestore(Context context, UserDataBaseHelper dbHelper) {
+    public void syncLocalToFirestore(Context context, FavoritesDatabaseHelper dbHelper) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
-        Cursor cursor = db.query(UserDataBaseHelper.TABLE_NAME, null, null, null, null, null, null);
+        Cursor cursor = db.query(FavoritesDatabaseHelper.TABLE_USERS, null, null, null, null, null, null); // Cambiar el nombre de la tabla
 
         if (cursor != null && cursor.moveToFirst()) {
             do {
                 // Leer datos de la base de datos local
-                String userId = cursor.getString(cursor.getColumnIndexOrThrow(UserDataBaseHelper.COLUMN_USER_ID));
-                String name = cursor.getString(cursor.getColumnIndexOrThrow(UserDataBaseHelper.COLUMN_NAME));
-                String email = cursor.getString(cursor.getColumnIndexOrThrow(UserDataBaseHelper.COLUMN_EMAIL));
-                String loginTime = cursor.getString(cursor.getColumnIndexOrThrow(UserDataBaseHelper.COLUMN_LOGIN_TIME));
-                String logoutTime = cursor.getString(cursor.getColumnIndexOrThrow(UserDataBaseHelper.COLUMN_LOGOUT_TIME));
+
+                String userId = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_USER_ID));
+                String name = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_NAME));
+                String email = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_EMAIL));
+                String loginTime = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_LOGIN_TIME));
+                String logoutTime = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_LOGOUT_TIME));
 
                 // Leer el documento actual desde Firestore
                 firestore.collection("users").document(userId).get()
@@ -56,7 +56,7 @@ public class UsersSync {
                                     String lastLoginTime = (String) lastEntry.get("login_time");
                                     String lastLogoutTime = (String) lastEntry.get("logout_time");
 
-                                    if (lastLogoutTime == null && loginTime.equals(lastLoginTime)) {
+                                    if (lastLogoutTime == null && loginTime != null && loginTime.equals(lastLoginTime)) {
                                         // Si la última entrada no tiene logout_time, actualizarlo
                                         lastEntry.put("logout_time", logoutTime);
                                         isUpdated = true;
@@ -66,7 +66,9 @@ public class UsersSync {
                                 if (!isUpdated) {
                                     // Solo agregar nueva entrada si no es un duplicado
                                     boolean exists = activityLog.stream().anyMatch(entry ->
-                                            loginTime.equals(entry.get("login_time")) && logoutTime.equals(entry.get("logout_time")));
+                                            loginTime != null && loginTime.equals(entry.get("login_time")) &&
+                                                    logoutTime != null && logoutTime.equals(entry.get("logout_time"))
+                                    );
 
                                     if (!exists) {
                                         Map<String, Object> newActivity = new HashMap<>();

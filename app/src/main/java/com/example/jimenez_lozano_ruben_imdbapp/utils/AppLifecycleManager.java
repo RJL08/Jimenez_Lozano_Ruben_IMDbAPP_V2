@@ -11,7 +11,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -62,18 +62,16 @@ import java.util.Locale;
      */
     private void registerUserLogout(FirebaseUser user) {
         // Guardar el tiempo de logout en la base de datos local
-        UserDataBaseHelper dbHelper = new UserDataBaseHelper(context);
+        UsersManager usersManager = new UsersManager(context); // Usamos UsersManager
         String logoutTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
 
-        dbHelper.updateLogoutTime(user.getUid(), logoutTime); // Actualizar logout en la base de datos
+        usersManager.updateLogoutTime(user.getUid(), logoutTime); // Actualizar logout en la base de datos
 
         // Actualizar el estado de sesión en SharedPreferences
         SharedPreferences preferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean(PREF_IS_LOGGED_IN, false);
         editor.apply();
-
-
 
         Log.d("AppLifecycleManager", "Logout registrado en la base de datos y SharedPreferences.");
     }

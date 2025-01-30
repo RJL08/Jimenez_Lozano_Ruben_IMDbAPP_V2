@@ -20,11 +20,11 @@ public class FavoritesSync {
 
         // 1. Obtener todos los IDs de películas en la base de datos local
         List<String> localMovieIds = new ArrayList<>();
-        Cursor cursor = db.query(FavoritesDatabaseHelper.TABLE_NAME, new String[]{FavoritesDatabaseHelper.COLUMN_ID}, null, null, null, null, null);
+        Cursor cursor = db.query(FavoritesDatabaseHelper.TABLE_FAVORITES, new String[]{FavoritesDatabaseHelper.COLUMN_FAVORITE_ID}, null, null, null, null, null);
 
         if (cursor != null && cursor.moveToFirst()) {
             do {
-                String movieId = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_ID));
+                String movieId = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_FAVORITE_ID));
                 localMovieIds.add(movieId);
             } while (cursor.moveToNext());
             cursor.close();
@@ -68,7 +68,7 @@ public class FavoritesSync {
     // Método para sincronizar una sola película en Firestore
     private void syncSingleFavoriteToFirestore(Context context, FavoritesDatabaseHelper dbHelper, String movieId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.query(FavoritesDatabaseHelper.TABLE_NAME, null, FavoritesDatabaseHelper.COLUMN_ID + "=?", new String[]{movieId}, null, null, null);
+        Cursor cursor = db.query(FavoritesDatabaseHelper.TABLE_FAVORITES, null, FavoritesDatabaseHelper.COLUMN_FAVORITE_ID + "=?", new String[]{movieId}, null, null, null);
 
         if (cursor != null && cursor.moveToFirst()) {
             FirebaseFirestore firestore = FirebaseFirestore.getInstance();

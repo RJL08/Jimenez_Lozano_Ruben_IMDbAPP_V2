@@ -6,7 +6,6 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Patterns;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -17,11 +16,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
-import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
-import com.example.jimenez_lozano_ruben_imdbapp.utils.AppLifecycleManager;
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
@@ -69,6 +66,7 @@ public class SigninActivity extends AppCompatActivity {
     private EditText passwordEditText;
     private Button loginButton;
     private Button registerButton;
+    private Context context;
 
 
     @Override
@@ -88,20 +86,13 @@ public class SigninActivity extends AppCompatActivity {
 
             // Sincronizar usuarios
             UsersSync usersSync = new UsersSync();
-            usersSync.syncLocalToFirestore(this, new UserDataBaseHelper(this));
+            usersSync.syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
             usersSync.syncUsersFromFirestore(this);
 
         // Sincronizar favoritos
         FavoritesSync favoritesSync = new FavoritesSync();
         favoritesSync.syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
 
-
-
-        // Configurar el ciclo de vida con AppLifecycleManager solo para API >= 14
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            AppLifecycleManager appLifecycleManager = new AppLifecycleManager(this);
-            getApplication().registerActivityLifecycleCallbacks(appLifecycleManager);
-        }
 
 
         // Comprobamos si el usuario ya está registrado
@@ -228,7 +219,7 @@ public class SigninActivity extends AppCompatActivity {
                                     userId,
                                     userName,
                                     userEmail,
-                                    UserDataBaseHelper.COLUMN_LOGIN_TIME,
+                                    FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,
                                     null // Sin foto por defecto
                             );
@@ -404,7 +395,7 @@ public class SigninActivity extends AppCompatActivity {
                                     userId,
                                     userName,
                                     userEmail,
-                                    UserDataBaseHelper.COLUMN_LOGIN_TIME,
+                                    FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,
                                     null // Sin foto por defecto
                             );
@@ -418,7 +409,12 @@ public class SigninActivity extends AppCompatActivity {
                             navigateToMainActivity(userName, userEmail, null, null, userId);
                         }
                     } else {
-                        // Intentar registrar al usuario si no existe
+                        // Verifica el error del login
+                        Exception exception = task.getException();
+                        if (exception != null) {
+                            Log.e("LoginUser", "Error al iniciar sesión: " + exception.getMessage());
+                        }
+                        // Si el usuario no está registrado, intentamos registrarlo
                         registerUser(email, password);
                     }
                 });
@@ -493,7 +489,7 @@ public class SigninActivity extends AppCompatActivity {
                             firebaseUser.getUid(), // user_id proporcionado por Firebase
                             name,
                             email != null ? email : "Correo no disponible", // Si el email es nulo
-                            UserDataBaseHelper.COLUMN_LOGIN_TIME,
+                            FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
                             loginTime,
                             photoUrl
                     );
@@ -634,7 +630,7 @@ public class SigninActivity extends AppCompatActivity {
                                     user.getUid(),             // user_id
                                     user.getDisplayName(),     // name
                                     user.getEmail(),            // email
-                                    UserDataBaseHelper.COLUMN_LOGIN_TIME,
+                                    FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,                 // login_time
                                     photoUrl                   // image
                             );

@@ -13,19 +13,17 @@ import android.view.View;
 import android.view.Menu;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
-import android.webkit.CookieSyncManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import com.bumptech.glide.Glide;
-import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
+
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.utils.AppLifecycleManager;
 import com.facebook.AccessToken;
 import com.facebook.FacebookSdk;
 import com.facebook.GraphRequest;
 import com.facebook.HttpMethod;
-import com.facebook.appevents.AppEventsLogger;
 import com.facebook.login.LoginManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
@@ -246,19 +244,19 @@ public class MainActivity extends AppCompatActivity {
      * @param logoutTime
      */
     private void updateLogoutTimeInDatabase(String userId, String logoutTime) {
-        // Instancia del helper para la base de datos de usuarios
-        UserDataBaseHelper dbHelper = new UserDataBaseHelper(this);
+        // Instancia del helper para la base de datos de usuarios (ahora en favorites_db)
+        FavoritesDatabaseHelper dbHelper = new FavoritesDatabaseHelper(this);
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         // Crear valores para actualizar
         ContentValues values = new ContentValues();
-        values.put(UserDataBaseHelper.COLUMN_LOGOUT_TIME, logoutTime);
+        values.put(FavoritesDatabaseHelper.COLUMN_LOGOUT_TIME, logoutTime); // Actualizamos logout_time en la tabla de usuarios
 
-        // Actualizar el tiempo de logout para el user_id correspondiente
+        // Actualizar el tiempo de logout para el user_id correspondiente en la nueva base de datos
         int rowsUpdated = db.update(
-                UserDataBaseHelper.TABLE_NAME,
+                FavoritesDatabaseHelper.TABLE_USERS, // Tabla de usuarios en la nueva base de datos
                 values,
-                UserDataBaseHelper.COLUMN_USER_ID + " = ?",
+                FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",
                 new String[]{userId}
         );
         if (rowsUpdated > 0) {
@@ -270,6 +268,7 @@ public class MainActivity extends AppCompatActivity {
         // Cerrar la base de datos
         db.close();
     }
+
 
 
 

@@ -10,6 +10,7 @@ import android.util.Log;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
 
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,7 +50,7 @@ public class FavoritesManager {
     public boolean addFavorite(String id, String userEmail, String movieTitle, String movieImage, String releaseDate, String movieRating, String overview, String userId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put(FavoritesDatabaseHelper.COLUMN_ID, id);
+        values.put(FavoritesDatabaseHelper.COLUMN_FAVORITE_ID, id);
         values.put(FavoritesDatabaseHelper.COLUMN_USER_EMAIL, userEmail);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE, movieTitle);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_IMAGE, movieImage);
@@ -70,7 +71,7 @@ public class FavoritesManager {
                 ", overview=" + overview);
 
 
-        long result = db.insert(FavoritesDatabaseHelper.TABLE_NAME, null, values);
+        long result = db.insert(FavoritesDatabaseHelper.TABLE_FAVORITES, null, values);
 
        db.close();
         // Sincronizar con Firestore
@@ -90,7 +91,7 @@ public class FavoritesManager {
     public boolean removeFavorite(String userEmail, String movieTitle) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         int rowsDeleted = db.delete(
-                FavoritesDatabaseHelper.TABLE_NAME,
+                FavoritesDatabaseHelper.TABLE_FAVORITES,
                 FavoritesDatabaseHelper.COLUMN_USER_ID + "=? AND " + FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE + "=?", //*******
                 new String[]{userEmail, movieTitle}
         );
@@ -117,7 +118,7 @@ public class FavoritesManager {
 
         return db.query(
                 // Nombre de la tabla
-                FavoritesDatabaseHelper.TABLE_NAME,
+                FavoritesDatabaseHelper.TABLE_FAVORITES,
                 null,
                 FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",//******
                 new String[]{userId},
@@ -136,7 +137,7 @@ public class FavoritesManager {
         if (cursor != null && cursor.moveToFirst()) {
             do {
                 Movies movie = new Movies();
-                movie.setId(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_ID)));
+                movie.setId(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_FAVORITE_ID)));
                 movie.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE)));
                 movie.setImageUrl(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_MOVIE_IMAGE)));
                 movie.setReleaseYear(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_RELEASE_DATE)));

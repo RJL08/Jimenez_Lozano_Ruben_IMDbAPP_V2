@@ -7,7 +7,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -15,11 +14,10 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import com.example.jimenez_lozano_ruben_imdbapp.database.UserDataBaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.squareup.picasso.Picasso;
 
@@ -161,21 +159,28 @@ public class EditUserActivity extends AppCompatActivity {
         UsersManager usersManager = new UsersManager(this);
 
         // Guardar o actualizar los detalles del usuario en la base de datos
-        boolean success = usersManager.addOrUpdateUser(userId, name, email, UserDataBaseHelper.COLUMN_LOGIN_TIME, loginTime, imageUrl);
+        boolean success = usersManager.addOrUpdateUser( userId,
+                name,
+                email,
+                FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,  // Esto es el 'timeField'
+                loginTime,
+
+                imageUrl  // Esto es el 'image'
+                );
 
         if (success) {
             // Guardar la dirección y teléfono en la base de datos solo si el usuario ya existe
-            SQLiteDatabase db = new UserDataBaseHelper(this).getWritableDatabase();
+            SQLiteDatabase db = new FavoritesDatabaseHelper(this).getWritableDatabase();
             ContentValues values = new ContentValues();
-            values.put(UserDataBaseHelper.COLUMN_ADDRESS, address);
-            values.put(UserDataBaseHelper.COLUMN_PHONE, phone);
-            values.put(UserDataBaseHelper.COLUMN_IMAGE, imageUrl);
+            values.put(FavoritesDatabaseHelper.COLUMN_ADDRESS, address);
+            values.put(FavoritesDatabaseHelper.COLUMN_PHONE, phone);
+            values.put(FavoritesDatabaseHelper.COLUMN_IMAGE, imageUrl);
 
             // Actualizar los valores de la dirección y teléfono en la base de datos
             int rowsUpdated = db.update(
-                    UserDataBaseHelper.TABLE_NAME,
+                    FavoritesDatabaseHelper.TABLE_USERS,
                     values,
-                    UserDataBaseHelper.COLUMN_USER_ID + " = ?",
+                    FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",
                     new String[]{userId}
             );
 
