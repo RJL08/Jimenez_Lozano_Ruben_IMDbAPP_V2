@@ -3,6 +3,7 @@ package com.example.jimenez_lozano_ruben_imdbapp;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -201,7 +202,12 @@ public class SigninActivity extends AppCompatActivity {
                             // Obtener los datos del usuario
                             String userId = newUser.getUid();
                             String userEmail = newUser.getEmail();
-                            String userName = newUser.getDisplayName() != null ? newUser.getDisplayName() : "";
+                            String userName = newUser.getDisplayName() != null ? newUser.getDisplayName() : "unknown";
+
+                            // Aquí puedes asignar valores predeterminados para los nuevos campos
+                            String address = "";  // Asignamos vacío como valor predeterminado para la dirección
+                            String phone = "";    // Asignamos vacío como valor predeterminado para el teléfono
+                            String image = "";    // Asignamos vacío como valor predeterminado para la imagen (puedes actualizar esto más adelante)
 
                             // Log para verificar los datos
                             Log.d("RegisterUser", "UID: " + userId + ", Email: " + userEmail);
@@ -221,17 +227,17 @@ public class SigninActivity extends AppCompatActivity {
                                     userEmail,
                                     FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,
-                                    null // Sin foto por defecto
+                                    image, // Imagen
+                                    address, // Dirección
+                                    phone  // Teléfono
                             );
 
                             if (!userAdded) {
                                 Log.e("RegisterUser", "Error al guardar el usuario en la base de datos local.");
                             }
 
-
-
                             // Guardar datos en SharedPreferences****************
-                            saveUserDataToPreferences(userName,  userEmail, null, null, userId);
+                            saveUserDataToPreferences(userName, userEmail, null, null, userId);
 
                             // Navegar a la pantalla principal
                             navigateToMainActivity(userName, userEmail, null, "email", userId);
@@ -241,6 +247,7 @@ public class SigninActivity extends AppCompatActivity {
                     }
                 });
     }
+
 
 
     /**
@@ -379,34 +386,41 @@ public class SigninActivity extends AppCompatActivity {
                             // Obtener los datos del usuario
                             String userId = user.getUid();
                             String userEmail = user.getEmail();
-                            String userName = user.getDisplayName() != null ? user.getDisplayName() : "";
+                            String userName = user.getDisplayName(); // Obtener el nombre de Firebase
 
-                            // Validar datos antes de guardarlos
-                            if (userId == null || userId.isEmpty() || userEmail == null || userEmail.isEmpty()) {
-                                Log.e("LoginUser", "Error: Datos inválidos desde Firebase.");
-                                Toast.makeText(this, "Error al iniciar sesión. Inténtalo de nuevo.", Toast.LENGTH_SHORT).show();
-                                return;
+                            // Verificar si el usuario ya está registrado en la base de datos local
+                            UsersManager usersManager = new UsersManager(this);
+                            Cursor cursor = usersManager.getUserData(userId);
+
+                            // Si el usuario ya está registrado en la base de datos local
+                            if (cursor != null && cursor.moveToFirst()) {
+                                int nameIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_NAME);
+                                int addressIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_ADDRESS);
+                                int phoneIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_PHONE);
+                                int imageIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_IMAGE);
+
+                                // Cargar los datos del usuario
+                                userName = cursor.getString(nameIndex);
+                                String address = cursor.getString(addressIndex);
+                                String phone = cursor.getString(phoneIndex);
+                                String image = cursor.getString(imageIndex);
+
+                                cursor.close(); // Cerrar el cursor
+
+                                // Guardar los datos en SharedPreferences
+                                saveUserDataToPreferences(userName, userEmail, image, null, userId);
+
+                                // Navegar a la pantalla principal
+                                navigateToMainActivity(userName, userEmail, image, null, userId);
+
+                            } else {
+                                // Si el usuario no está registrado en la base de datos local, mostrar mensaje de que debe registrarse
+                                Toast.makeText(this, "Debes registrarte primero", Toast.LENGTH_SHORT).show();
+
+                                // Llamar al método de registro
+                                registerUser(email, password);
                             }
 
-                            // Guardar en la base de datos local
-                            UsersManager usersManager = new UsersManager(this);
-                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
-                            usersManager.addOrUpdateUser(
-                                    userId,
-                                    userName,
-                                    userEmail,
-                                    FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
-                                    loginTime,
-                                    null // Sin foto por defecto
-                            );
-
-
-
-                            // Guardar datos en SharedPreferences
-                            saveUserDataToPreferences( userName, userEmail, null, null, userId);
-
-                            // Navegar a la pantalla principal
-                            navigateToMainActivity(userName, userEmail, null, null, userId);
                         }
                     } else {
                         // Verifica el error del login
@@ -473,6 +487,10 @@ public class SigninActivity extends AppCompatActivity {
                         photoUrl = "https://graph.facebook.com/" + facebookId + "/picture?type=large";
                     }
 
+                    // Asignar valores predeterminados para los nuevos campos
+                    String address = "";  // Asignamos vacío como valor predeterminado para la dirección
+                    String phone = "";    // Asignamos vacío como valor predeterminado para el teléfono
+
                     // Guardar datos en SharedPreferences
                     saveUserDataToPreferences(name, email, photoUrl, "facebook.com", firebaseUser.getUid());//************************
 
@@ -485,13 +503,16 @@ public class SigninActivity extends AppCompatActivity {
                             ", Name=" + name +
                             ", Email=" + email +
                             ", PhotoUrl=" + photoUrl);
+                    // Llamar a addOrUpdateUser con los nuevos campos
                     boolean userAdded = usersManager.addOrUpdateUser(
                             firebaseUser.getUid(), // user_id proporcionado por Firebase
                             name,
                             email != null ? email : "Correo no disponible", // Si el email es nulo
                             FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
                             loginTime,
-                            photoUrl
+                            photoUrl, // Imagen
+                            address, // Dirección
+                            phone  // Teléfono
                     );
 
                     if (!userAdded) {
@@ -611,6 +632,10 @@ public class SigninActivity extends AppCompatActivity {
                                     : "https://lh3.googleusercontent.com/a/default-user";
 
 
+                            // Asignar valores predeterminados para los nuevos campos
+                            String address = "";  // Asignamos vacío como valor predeterminado para la dirección
+                            String phone = "";    // Asignamos vacío como valor predeterminado para el teléfono
+
                             // Guardar datos del usuario en SharedPreferences
                             saveUserDataToPreferences(
                                     user.getDisplayName(),
@@ -629,11 +654,14 @@ public class SigninActivity extends AppCompatActivity {
                             boolean userAdded = usersManager.addOrUpdateUser(
                                     user.getUid(),             // user_id
                                     user.getDisplayName(),     // name
-                                    user.getEmail(),            // email
+                                    user.getEmail(),           // email
                                     FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
                                     loginTime,                 // login_time
-                                    photoUrl                   // image
+                                    photoUrl,                  // image
+                                    address,                   // address
+                                    phone                      // phone
                             );
+
 
                             if (!userAdded) {
                                 Log.e("firebaseAuthWithGoogle", "Error al guardar el usuario en la base de datos.");
@@ -662,7 +690,7 @@ public class SigninActivity extends AppCompatActivity {
      *
      * @param
      */
-    private void saveUserDataToPreferences(String name, String email, String photoUrl, String provider, String userId) {
+    public void saveUserDataToPreferences(String name, String email, String photoUrl, String provider, String userId) {
         SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
         Log.d("SaveUserData", "Guardando: userId=" + userId + ", userEmail=" + email);
         editor.putBoolean("isLoggedIn", true);

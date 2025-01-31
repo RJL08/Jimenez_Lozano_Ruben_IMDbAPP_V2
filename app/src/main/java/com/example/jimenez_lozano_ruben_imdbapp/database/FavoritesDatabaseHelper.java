@@ -16,7 +16,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
     // Declaramos los atributos de la base de datos
     private static final String DATABASE_NAME = "favorites_db";
-    private static final int DATABASE_VERSION = 10;  // Mantén la versión en 6
+    private static final int DATABASE_VERSION = 11;  // Mantén la versión en 6
 
     // Nombre de la tabla de favoritos
     public static final String TABLE_FAVORITES = "favorites";
@@ -54,7 +54,7 @@ import android.database.sqlite.SQLiteOpenHelper;
         // Crear la tabla de usuarios
         String createUsersTable = "CREATE TABLE " + TABLE_USERS + " (" +
                 COLUMN_USER_ID + " TEXT PRIMARY KEY, " +
-                COLUMN_NAME + " TEXT NOT NULL, " +
+                COLUMN_NAME + " TEXT , " +
                 COLUMN_EMAIL + " TEXT NOT NULL, " +
                 COLUMN_LOGIN_TIME + " TEXT, " +
                 COLUMN_LOGOUT_TIME + " TEXT, " +

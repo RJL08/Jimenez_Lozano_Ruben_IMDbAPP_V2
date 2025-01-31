@@ -37,6 +37,9 @@ public class UsersSync {
                 String email = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_EMAIL));
                 String loginTime = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_LOGIN_TIME));
                 String logoutTime = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_LOGOUT_TIME));
+                String address = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_ADDRESS));  // Nuevo campo
+                String phone = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_PHONE));  // Nuevo campo
+                String image = cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_IMAGE));  // Nuevo campo
 
                 // Leer el documento actual desde Firestore
                 firestore.collection("users").document(userId).get()
@@ -83,6 +86,9 @@ public class UsersSync {
                                 userMap.put("user_id", userId);
                                 userMap.put("name", name);
                                 userMap.put("email", email);
+                                userMap.put("address", address);  // Agregar dirección
+                                userMap.put("phone", phone);  // Agregar teléfono
+                                userMap.put("image", image);
                                 userMap.put("activity_log", activityLog);
 
                                 firestore.collection("users").document(userId)
@@ -99,6 +105,9 @@ public class UsersSync {
                                 userMap.put("user_id", userId);
                                 userMap.put("name", name);
                                 userMap.put("email", email);
+                                userMap.put("address", address);  // Agregar dirección
+                                userMap.put("phone", phone);  // Agregar teléfono
+                                userMap.put("image", image);
                                 userMap.put("activity_log", Arrays.asList(newActivity));
 
                                 firestore.collection("users").document(userId)
@@ -115,6 +124,10 @@ public class UsersSync {
     }
 
 
+    /**
+     * Sincroniza los datos de Firestore con la base de datos local.
+     * @param context
+     */
     public void syncUsersFromFirestore(Context context) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("users").get().addOnCompleteListener(task -> {
@@ -141,6 +154,8 @@ public class UsersSync {
                             document.getString("email"),
                             loginTime,
                             logoutTime,
+                            document.getString("address"), // Dirección si está disponible
+                            document.getString("phone"), // Teléfono si está disponible
                             document.getString("image") // Imagen si está disponible
                     );
                 }

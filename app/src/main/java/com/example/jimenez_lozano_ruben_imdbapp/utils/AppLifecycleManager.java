@@ -100,6 +100,8 @@ import java.util.Locale;
     public void onActivityPaused(@NonNull Activity activity) {
         isInBackground = true; // La aplicación está en segundo plano
         logoutHandler.postDelayed(logoutRunnable, LOGOUT_DELAY); // Programar logout
+
+
     }
 
     /**
