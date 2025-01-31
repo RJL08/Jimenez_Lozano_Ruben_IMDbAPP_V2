@@ -388,6 +388,8 @@ public class SigninActivity extends AppCompatActivity {
                             String userEmail = user.getEmail();
                             String userName = user.getDisplayName(); // Obtener el nombre de Firebase
 
+
+
                             // Verificar si el usuario ya está registrado en la base de datos local
                             UsersManager usersManager = new UsersManager(this);
                             Cursor cursor = usersManager.getUserData(userId);

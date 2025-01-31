@@ -360,11 +360,8 @@ public class EditUserActivity extends AppCompatActivity {
         // Si el nombre cambió, lo actualizamos en Firebase también
         if (currentUserName != null) {
             updateUserNameInFirebase(name);
-            // 8) Guardar datos actualizados en SharedPreferences
-
         }
 
-        // Puedes sincronizar con Firestore o hacer otros procesos adicionales
     }
 
     // Método para actualizar el nombre en Firebase si ha cambiado

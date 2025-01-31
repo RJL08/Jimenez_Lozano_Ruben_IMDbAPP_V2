@@ -116,8 +116,8 @@ public class UsersManager {
             values.put(FavoritesDatabaseHelper.COLUMN_ADDRESS, address);
 
         }
-        // Si el campo es phone, actualizamos el phone si no es nulo o vacío
-        if (phone != null && phone.isEmpty()) {
+        // Si el teléfono no es nulo o vacío, lo asignamos
+        if (phone != null && !phone.equals("")) {
             values.put(FavoritesDatabaseHelper.COLUMN_PHONE, phone);
         }
 
