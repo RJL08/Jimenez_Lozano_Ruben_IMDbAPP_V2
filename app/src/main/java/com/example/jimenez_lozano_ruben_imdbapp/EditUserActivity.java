@@ -273,10 +273,23 @@ public class EditUserActivity extends AppCompatActivity {
                             if (email != null) etEmail.setText(email);
                             if (address != null) etAddress.setText(address);
                             if (phone != null) etPhone.setText(phone);
-                            if (image != null && !image.isEmpty()) {
-                                Picasso.get().load(image)
-                                        .placeholder(R.drawable.ic_launcher_foreground) // Recurso placeholder
-                                        .error(R.drawable.ic_launcher_foreground)             // Recurso en caso de error
+                            Log.d("EditUser", "Valor del campo image: " + image);
+
+                            // Opción 1: Usando File
+                            File imageFile = new File(image);
+                            if (imageFile.exists()) {
+                                Picasso.get()
+                                        .load(imageFile)
+                                        .placeholder(R.drawable.esperando)
+                                        .error(R.drawable.ic_launcher_foreground)
+                                        .into(ivProfileImage);
+                            } else {
+                                // Opción 2: Usar URI con prefijo "file://"
+                                String imageUri = "file://" + image;
+                                Picasso.get()
+                                        .load(imageUri)
+                                        .placeholder(R.drawable.esperando)
+                                        .error(R.drawable.ic_launcher_foreground)
                                         .into(ivProfileImage);
                             }
                         } else {
@@ -285,7 +298,7 @@ public class EditUserActivity extends AppCompatActivity {
                     })
                     .addOnFailureListener(e ->
                             Log.e("EditUser", "Error al cargar datos de usuario: " + e.getMessage(), e));
-        }
+    }
 
 
     private void saveUserDetails() {

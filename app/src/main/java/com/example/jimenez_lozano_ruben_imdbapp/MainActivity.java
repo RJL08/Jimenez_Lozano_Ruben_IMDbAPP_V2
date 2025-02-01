@@ -38,6 +38,7 @@ import com.example.jimenez_lozano_ruben_imdbapp.databinding.ActivityMainBinding;
 import com.google.firebase.auth.FirebaseAuth;
 import com.squareup.picasso.Picasso;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -121,13 +122,39 @@ public class MainActivity extends AppCompatActivity {
         if (userEmail != null) {
             emailTextView.setText(userEmail);
         }
-        if (userPhotoUrl != null) {
-            Picasso.get()
-                    .load(userPhotoUrl)
-                    .placeholder(R.drawable.ic_launcher_background) // Imagen por defecto
-                    .error(R.drawable.ic_launcher_foreground) // Imagen de error
-                    .into(profileImageView);
+        // Cargar la imagen en el header con la condición para URL remota o ruta local
+        if (userPhotoUrl != null && !userPhotoUrl.isEmpty()) {
+            if (userPhotoUrl.startsWith("http://") || userPhotoUrl.startsWith("https://")) {
+                // Se asume que es una URL remota
+                Picasso.get()
+                        .load(userPhotoUrl)
+                        .placeholder(R.drawable.esperando)
+                        .error(R.drawable.ic_launcher_foreground)
+                        .into(profileImageView);
+            } else {
+                // Se asume que es una ruta local
+                File imageFile = new File(userPhotoUrl);
+                if (imageFile.exists()) {
+                    Picasso.get()
+                            .load(imageFile)
+                            .placeholder(R.drawable.esperando)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                } else {
+                    // Si el archivo no existe, se intenta cargar anteponiendo "file://"
+                    String fileUri = "file://" + userPhotoUrl;
+                    Picasso.get()
+                            .load(fileUri)
+                            .placeholder(R.drawable.esperando)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                }
+            }
+        } else {
+            // Si no hay URL de foto, se asigna una imagen por defecto
+            profileImageView.setImageResource(R.drawable.ic_launcher_foreground);
         }
+
 
         // Configuramos el boton de logout para cerrar sesion
         logoutButton.setOnClickListener(v -> {
@@ -197,12 +224,40 @@ public class MainActivity extends AppCompatActivity {
         nameTextView.setText(userName != null ? userName : "Nombre no disponible");
         emailTextView.setText(userEmail != null ? userEmail : "Correo no disponible");
 
-        // Mostrar foto de perfil usando Picasso
-        Picasso.get()
-                .load(userPhotoUrl)
-                .placeholder(R.drawable.ic_launcher_background) // Imagen por defecto
-                .error(R.drawable.ic_launcher_foreground) // Imagen de error
-                .into(profileImageView);
+        // Condición para cargar la imagen:
+        // Si userPhotoUrl no es nulo ni vacío, procedemos a cargarla
+        if (userPhotoUrl != null && !userPhotoUrl.isEmpty()) {
+            // Si la cadena comienza con "http://" o "https://", se asume que es una URL remota
+            if (userPhotoUrl.startsWith("http://") || userPhotoUrl.startsWith("https://")) {
+                Picasso.get()
+                        .load(userPhotoUrl)
+                        .placeholder(R.drawable.esperando)
+                        .error(R.drawable.ic_launcher_foreground)
+                        .into(profileImageView);
+            } else {
+                // Se asume que es una ruta local
+                File imageFile = new File(userPhotoUrl);
+                if (imageFile.exists()) {
+                    // Cargar la imagen usando el objeto File
+                    Picasso.get()
+                            .load(imageFile)
+                            .placeholder(R.drawable.esperando)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                } else {
+                    // Si el archivo no existe, se intenta cargar anteponiendo "file://"
+                    String fileUri = "file://" + userPhotoUrl;
+                    Picasso.get()
+                            .load(fileUri)
+                            .placeholder(R.drawable.ic_launcher_background)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                }
+            }
+        } else {
+            // Si no se proporciona userPhotoUrl, se asigna una imagen por defecto
+            profileImageView.setImageResource(R.drawable.ic_launcher_foreground);
+        }
     }
 
 
