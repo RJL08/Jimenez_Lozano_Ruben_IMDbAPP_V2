@@ -28,14 +28,19 @@ import android.Manifest;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 import com.squareup.picasso.Picasso;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class EditUserActivity extends AppCompatActivity {
@@ -246,152 +251,92 @@ public class EditUserActivity extends AppCompatActivity {
 
     private void loadUserData() {
         // Obtener el userId de Firebase
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
-            // Si no hay usuario conectado, mostrar mensaje de error
-            Toast.makeText(this, "No hay usuario conectado.", Toast.LENGTH_SHORT).show();
-            return;
-        }
 
-        // Obtener el userId de Firebase
-        String userId = currentUser.getUid();
-
-        if (userId == null || userId.isEmpty()) {
-            // Si el userId es nulo o vacío, mostrar error
-            Toast.makeText(this, "ID de usuario no válido.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Realizar la consulta en la base de datos local usando el userId
-        SQLiteDatabase db = new FavoritesDatabaseHelper(this).getReadableDatabase();
-        Cursor cursor = db.query(
-                FavoritesDatabaseHelper.TABLE_USERS,
-                new String[]{
-                        FavoritesDatabaseHelper.COLUMN_USER_ID,
-                        FavoritesDatabaseHelper.COLUMN_NAME,
-                        FavoritesDatabaseHelper.COLUMN_EMAIL,
-                        FavoritesDatabaseHelper.COLUMN_ADDRESS,
-                        FavoritesDatabaseHelper.COLUMN_PHONE,
-                        FavoritesDatabaseHelper.COLUMN_IMAGE
-                },
-                FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",
-                new String[]{userId},
-                null, null, null
-        );
-
-        if (cursor != null) {
-            try {
-                if (cursor.moveToFirst()) {
-                    int nameIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_NAME);
-                    int emailIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_EMAIL);
-                    int addressIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_ADDRESS);
-                    int phoneIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_PHONE);
-                    int imageIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_IMAGE);
-
-                    String name = cursor.getString(nameIndex);
-                    String email = cursor.getString(emailIndex);
-                    String address = cursor.getString(addressIndex);
-                    String phone = cursor.getString(phoneIndex);
-                    String image = cursor.getString(imageIndex);
-
-                    // Cargar los datos en los campos
-                    etName.setText(name != null ? name : "");
-                    etEmail.setText(email != null ? email : "");
-                    etAddress.setText(address != null ? address : "");
-                    etPhone.setText(phone != null ? phone : "");
-
-                    if (image != null && !image.isEmpty()) {
-                        Picasso.get().load(image)
-                                .placeholder(R.drawable.ic_launcher_background)
-                                .error(R.drawable.ic_launcher_foreground)
-                                .into(ivProfileImage);
-                    } else {
-                        ivProfileImage.setImageResource(R.drawable.ic_launcher_foreground);
-                    }
-                } else {
-                    Toast.makeText(this, "No se encontró el usuario en la base de datos.", Toast.LENGTH_SHORT).show();
-                }
-            } finally {
-                cursor.close(); // Asegúrate de cerrar el cursor
+            String uid = FirebaseAuth.getInstance().getUid();
+            if (uid == null) {
+                Log.e("EditUser", "No hay usuario logueado.");
+                return;
             }
+
+            FirebaseFirestore.getInstance().collection("users")
+                    .document(uid)
+                    .get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        if (documentSnapshot.exists()) {
+                            String name = documentSnapshot.getString("name");
+                            String email = documentSnapshot.getString("email");
+                            String address = documentSnapshot.getString("address");
+                            String phone = documentSnapshot.getString("phone");
+                            String image = documentSnapshot.getString("image");
+
+                            if (name != null) etName.setText(name);
+                            if (email != null) etEmail.setText(email);
+                            if (address != null) etAddress.setText(address);
+                            if (phone != null) etPhone.setText(phone);
+                            if (image != null && !image.isEmpty()) {
+                                Picasso.get().load(image)
+                                        .placeholder(R.drawable.ic_launcher_foreground) // Recurso placeholder
+                                        .error(R.drawable.ic_launcher_foreground)             // Recurso en caso de error
+                                        .into(ivProfileImage);
+                            }
+                        } else {
+                            Log.d("EditUser", "El usuario no tiene un documento en Firestore.");
+                        }
+                    })
+                    .addOnFailureListener(e ->
+                            Log.e("EditUser", "Error al cargar datos de usuario: " + e.getMessage(), e));
         }
-    }
 
 
     private void saveUserDetails() {
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid == null) {
+            Toast.makeText(this, "No hay usuario logueado", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        // 1) Leer datos de los EditText
+        // Leer los valores de los EditText
         String name = etName.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String address = etAddress.getText().toString().trim();
         String phone = etPhone.getText().toString().trim();
+
+        // Validaciones mínimas
+        if (name.isEmpty()) {
+            Toast.makeText(this, "El nombre no puede estar vacío", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Puedes agregar validaciones adicionales (por ejemplo, formato de email, teléfono numérico, etc.)
+
+        // Obtener el Bitmap del ImageView de perfil
         Bitmap bitmap = ((BitmapDrawable) ivProfileImage.getDrawable()).getBitmap();
-        String image = saveImageToInternalStorage(bitmap, "profile_image.png");
+        // Guardar la imagen y obtener la ruta
+        String imagePath = saveImageToInternalStorage(bitmap, "profile_image.png");
 
-        // 2) Validaciones básicas
-        if (email.isEmpty()) {
-            Toast.makeText(this, "Debe indicar un email.", Toast.LENGTH_SHORT).show();
-            return;
+        // Crear un Map con los datos a guardar en Firestore
+        Map<String, Object> data = new HashMap<>();
+        data.put("name", name);
+        data.put("email", email);
+        data.put("address", address);
+        data.put("phone", phone);
+        if (imagePath != null && !imagePath.isEmpty()) {
+            data.put("image", imagePath);
         }
 
-        // 3) Obtener el userId de Firebase
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
-            Toast.makeText(this, "No hay usuario logueado en Firebase.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        String userId = currentUser.getUid();
+        // Actualizar (o crear) el documento de usuario en Firestore con merge para conservar datos existentes
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("users").document(uid)
+                .set(data, SetOptions.merge())
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(this, "Datos Actualizados con Éxito", Toast.LENGTH_SHORT).show();
+                    Log.d("EditUser", "Usuario actualizado en Firestore");
+                    new UsersSync().syncFirestoreToLocal(this);
 
-        // 4) Obtener el nombre actual desde Firebase
-        String currentUserName = currentUser.getDisplayName();
-
-        // 5) Verificar si el nombre ha cambiado, si no ha cambiado no actualizamos en Firebase
-        if (currentUserName != null && currentUserName.equals(name)) {
-            // Si el nombre no cambia, no actualizamos el nombre en Firebase.
-            currentUserName = null;  // No actualizamos el nombre
-        }
-
-        // 6) Construir los valores que queremos actualizar
-        ContentValues values = new ContentValues();
-        values.put(FavoritesDatabaseHelper.COLUMN_EMAIL, email);
-        values.put(FavoritesDatabaseHelper.COLUMN_ADDRESS, address);
-        values.put(FavoritesDatabaseHelper.COLUMN_PHONE, phone);
-        values.put(FavoritesDatabaseHelper.COLUMN_IMAGE, image);
-        values.put(FavoritesDatabaseHelper.COLUMN_NAME, name);
-
-
-
-        // 7) Realizar UPDATE
-        FavoritesDatabaseHelper dbHelper = new FavoritesDatabaseHelper(this);
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-
-        int rowsUpdated = db.update(
-                FavoritesDatabaseHelper.TABLE_USERS,
-                values,
-                FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",
-                new String[]{userId}
-        );
-
-        // 8) Si no existe todavía la fila para este userId, la insertamos
-        if (rowsUpdated == 0) {
-            values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);
-            long insertedId = db.insert(FavoritesDatabaseHelper.TABLE_USERS, null, values);
-            if (insertedId != -1) {
-                Toast.makeText(this, "Usuario insertado exitosamente.", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Error al insertar el usuario.", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            Toast.makeText(this, "Usuario actualizado exitosamente.", Toast.LENGTH_SHORT).show();
-        }
-
-        db.close();
-
-        // Si el nombre cambió, lo actualizamos en Firebase también
-        if (currentUserName != null) {
-            updateUserNameInFirebase(name);
-        }
-
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Error al actualizar datos", Toast.LENGTH_SHORT).show();
+                    Log.e("EditUser", "Fallo al actualizar Firestore: " + e.getMessage(), e);
+                });
     }
 
 
@@ -410,24 +355,7 @@ public class EditUserActivity extends AppCompatActivity {
         }
     }
 
-    // Método para actualizar el nombre en Firebase si ha cambiado
-    private void updateUserNameInFirebase(String newName) {
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser != null) {
-            UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
-                    .setDisplayName(newName)
-                    .build();
 
-            currentUser.updateProfile(profileUpdates)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Log.d("SaveUserDetails", "Nombre actualizado en Firebase");
-                        } else {
-                            Log.e("SaveUserDetails", "Error al actualizar el nombre en Firebase");
-                        }
-                    });
-        }
-    }
 
 
 }

@@ -154,9 +154,9 @@ public class UsersSync {
                             document.getString("email"),
                             loginTime,
                             logoutTime,
-                            document.getString("address"), // Dirección si está disponible
-                            document.getString("phone"), // Teléfono si está disponible
-                            document.getString("image") // Imagen si está disponible
+                            document.getString("image"),   // Imagen
+                            document.getString("address"), // Dirección
+                            document.getString("phone")      // Teléfono
                     );
                 }
             } else {
@@ -164,4 +164,51 @@ public class UsersSync {
             }
         });
     }
+
+    /**
+     * Sincroniza los datos de la colección "users" de Firestore con la base de datos local.
+     * Para cada documento en Firestore, se actualiza o inserta el usuario en la base de datos local.
+     *
+     * @param context Contexto de la aplicación (usualmente el Activity o Application).
+     */
+    public void syncFirestoreToLocal(Context context) {
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        firestore.collection("users").get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        // Recorrer cada documento obtenido de Firestore
+                        for (QueryDocumentSnapshot document : task.getResult()) {
+                            // Se asume que las claves del documento coinciden con los nombres de campo
+                            String userId = document.getString("user_id");
+                            String name = document.getString("name");
+                            String email = document.getString("email");
+                            String address = document.getString("address");
+                            String phone = document.getString("phone");
+                            String image = document.getString("image");
+
+                            // Si tienes campos de login/logout time, también puedes leerlos
+                            String loginTime = document.getString("login_time");
+                            String logoutTime = document.getString("logout_time");
+
+                            // Usamos el UsersManager para actualizar o insertar el usuario en la BD local
+                            UsersManager usersManager = new UsersManager(context);
+                            // En este ejemplo, si no tienes loginTime/logoutTime actualizados, puedes pasar null
+                            usersManager.addOrUpdateUser(
+                                    userId,
+                                    name,
+                                    email,
+                                    loginTime,    // O null si no es relevante en esta sincronización
+                                    logoutTime,   // O null
+                                    image,
+                                    address,
+                                    phone
+                            );
+                        }
+                        Log.d(TAG, "Sincronización de Firestore a local completada.");
+                    } else {
+                        Log.e(TAG, "Error al sincronizar de Firestore a local: " + task.getException().getMessage());
+                    }
+                });
+    }
 }
+
