@@ -20,5 +20,6 @@
     <string name="fb_login_protocol_scheme">fb4022001221352288</string>
     <string name="facebook_client_token">f6c454dcc7837d94ddac8bb266c3547d</string>
     <string name="default_notification_channel_id">default_channel</string>
+    <string name="google_maps_api_key">AIzaSyAER7D-uvYpBOG3wZjz9z3AeGulqAci-OU</string>
 
 </resources>

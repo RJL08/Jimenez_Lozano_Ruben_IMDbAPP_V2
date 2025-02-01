@@ -1,15 +1,12 @@
 package com.example.jimenez_lozano_ruben_imdbapp;
-
-
 import android.content.ContentValues;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -19,22 +16,26 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import android.Manifest;
-
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
-import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
-import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
 import com.squareup.picasso.Picasso;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 
 public class EditUserActivity extends AppCompatActivity {
@@ -46,7 +47,7 @@ public class EditUserActivity extends AppCompatActivity {
     private static final int REQUEST_IMAGE_PICK = 101;
     private static final int PERMISSION_CAMERA_REQUEST_CODE = 200;
     private static final int PERMISSION_READ_STORAGE_REQUEST_CODE = 201;
-
+    private ActivityResultLauncher<Intent> selectAddressLauncher;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,6 +77,29 @@ public class EditUserActivity extends AppCompatActivity {
                 showImagePickerDialog();
             }
         });
+
+        // Configurar el botón para seleccionar dirección
+        btnSelectAddress.setOnClickListener(v -> {
+            Intent intent = new Intent(EditUserActivity.this, SelectAddressActivity.class);
+            selectAddressLauncher.launch(intent); // Usar el launcher en lugar de startActivityForResult
+        });
+
+
+        // Inicializa el ActivityResultLauncher
+        selectAddressLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK) {
+                        Intent data = result.getData();
+                        if (data != null) {
+                            String address = data.getStringExtra("address");
+                            etAddress.setText(address); // Coloca la dirección en el EditText
+                        }
+                    }
+                }
+        );
+
+
 
     }
 
@@ -255,37 +279,42 @@ public class EditUserActivity extends AppCompatActivity {
                 null, null, null
         );
 
-        if (cursor != null && cursor.moveToFirst()) {
-            int nameIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_NAME);
-            int emailIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_EMAIL);
-            int addressIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_ADDRESS);
-            int phoneIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_PHONE);
-            int imageIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_IMAGE);
+        if (cursor != null) {
+            try {
+                if (cursor.moveToFirst()) {
+                    int nameIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_NAME);
+                    int emailIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_EMAIL);
+                    int addressIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_ADDRESS);
+                    int phoneIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_PHONE);
+                    int imageIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_IMAGE);
 
-            String name = cursor.getString(nameIndex);
-            String email = cursor.getString(emailIndex);
-            String address = cursor.getString(addressIndex);
-            String phone = cursor.getString(phoneIndex);
-            String image = cursor.getString(imageIndex);
+                    String name = cursor.getString(nameIndex);
+                    String email = cursor.getString(emailIndex);
+                    String address = cursor.getString(addressIndex);
+                    String phone = cursor.getString(phoneIndex);
+                    String image = cursor.getString(imageIndex);
 
-            // Cargar los datos en los campos
-            etName.setText(name != null ? name : "");
-            etEmail.setText(email != null ? email : "");
-            etAddress.setText(address != null ? address : "");
-            etPhone.setText(phone != null ? phone : "");
+                    // Cargar los datos en los campos
+                    etName.setText(name != null ? name : "");
+                    etEmail.setText(email != null ? email : "");
+                    etAddress.setText(address != null ? address : "");
+                    etPhone.setText(phone != null ? phone : "");
 
-            if (image != null && !image.isEmpty()) {
-                Picasso.get().load(image)
-                        .placeholder(R.drawable.ic_launcher_background)
-                        .error(R.drawable.ic_launcher_foreground)
-                        .into(ivProfileImage);
-            } else {
-                ivProfileImage.setImageResource(R.drawable.ic_launcher_foreground);
+                    if (image != null && !image.isEmpty()) {
+                        Picasso.get().load(image)
+                                .placeholder(R.drawable.ic_launcher_background)
+                                .error(R.drawable.ic_launcher_foreground)
+                                .into(ivProfileImage);
+                    } else {
+                        ivProfileImage.setImageResource(R.drawable.ic_launcher_foreground);
+                    }
+                } else {
+                    Toast.makeText(this, "No se encontró el usuario en la base de datos.", Toast.LENGTH_SHORT).show();
+                }
+            } finally {
+                cursor.close(); // Asegúrate de cerrar el cursor
             }
-        } else {
-            Toast.makeText(this, "No se encontró el usuario en la base de datos.", Toast.LENGTH_SHORT).show();
         }
-        cursor.close();
     }
 
 
@@ -296,7 +325,8 @@ public class EditUserActivity extends AppCompatActivity {
         String email = etEmail.getText().toString().trim();
         String address = etAddress.getText().toString().trim();
         String phone = etPhone.getText().toString().trim();
-        String image = "";
+        Bitmap bitmap = ((BitmapDrawable) ivProfileImage.getDrawable()).getBitmap();
+        String image = saveImageToInternalStorage(bitmap, "profile_image.png");
 
         // 2) Validaciones básicas
         if (email.isEmpty()) {
@@ -362,6 +392,22 @@ public class EditUserActivity extends AppCompatActivity {
             updateUserNameInFirebase(name);
         }
 
+    }
+
+
+    private String saveImageToInternalStorage(Bitmap bitmap, String fileName) {
+        // Obtener el directorio interno de la aplicación
+        File directory = getFilesDir();
+        File imageFile = new File(directory, fileName);
+
+        try (FileOutputStream fos = new FileOutputStream(imageFile)) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            fos.flush();
+            return imageFile.getAbsolutePath(); // Retornar la ruta del archivo
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     // Método para actualizar el nombre en Firebase si ha cambiado

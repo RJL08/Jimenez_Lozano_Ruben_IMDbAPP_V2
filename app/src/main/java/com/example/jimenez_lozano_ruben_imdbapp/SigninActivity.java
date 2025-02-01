@@ -188,11 +188,6 @@ public class SigninActivity extends AppCompatActivity {
         configureRegisterButton();
     }
 
-    /**
-     * Registra al usuario en Firebase Authentication.
-     * @param email Correo electrónico del usuario.
-     * @param password Contraseña del usuario.
-     */
     private void registerUser(String email, String password) {
         firebaseAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
@@ -388,41 +383,57 @@ public class SigninActivity extends AppCompatActivity {
                             String userEmail = user.getEmail();
                             String userName = user.getDisplayName(); // Obtener el nombre de Firebase
 
-
-
-                            // Verificar si el usuario ya está registrado en la base de datos local
-                            UsersManager usersManager = new UsersManager(this);
-                            Cursor cursor = usersManager.getUserData(userId);
-
-                            // Si el usuario ya está registrado en la base de datos local
-                            if (cursor != null && cursor.moveToFirst()) {
-                                int nameIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_NAME);
-                                int addressIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_ADDRESS);
-                                int phoneIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_PHONE);
-                                int imageIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_IMAGE);
-
-                                // Cargar los datos del usuario
-                                userName = cursor.getString(nameIndex);
-                                String address = cursor.getString(addressIndex);
-                                String phone = cursor.getString(phoneIndex);
-                                String image = cursor.getString(imageIndex);
-
-                                cursor.close(); // Cerrar el cursor
-
-                                // Guardar los datos en SharedPreferences
-                                saveUserDataToPreferences(userName, userEmail, image, null, userId);
-
-                                // Navegar a la pantalla principal
-                                navigateToMainActivity(userName, userEmail, image, null, userId);
-
-                            } else {
-                                // Si el usuario no está registrado en la base de datos local, mostrar mensaje de que debe registrarse
-                                Toast.makeText(this, "Debes registrarte primero", Toast.LENGTH_SHORT).show();
-
-                                // Llamar al método de registro
-                                registerUser(email, password);
+                            // Validar los datos antes de guardarlos
+                            if (userId == null || userId.isEmpty() || userEmail == null || userEmail.isEmpty()) {
+                                Log.e("LoginUser", "Error: Datos del usuario inválidos.");
+                                return;
                             }
 
+                            // Guardar en la base de datos local
+                            UsersManager usersManager = new UsersManager(this);
+                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+
+                            // Recuperar los datos existentes del usuario
+                            Cursor cursor = usersManager.getUserData(userId);
+
+                            String image = null;
+                            String address = null;
+                            String phone = null;
+
+                            if (cursor != null && cursor.moveToFirst()) {
+                                // Cargar los datos del usuario
+                                int imageIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_IMAGE);
+                                int addressIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_ADDRESS);
+                                int phoneIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_PHONE);
+
+                                image = cursor.getString(imageIndex);
+                                address = cursor.getString(addressIndex);
+                                phone = cursor.getString(phoneIndex);
+
+                                cursor.close(); // Cerrar el cursor
+                            }
+
+                            // Actualizar el usuario en la base de datos local
+                            boolean userAdded = usersManager.addOrUpdateUser(
+                                    userId,
+                                    userName,
+                                    userEmail,
+                                    FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
+                                    loginTime,
+                                    image, // Usar la imagen existente
+                                    address, // Usar la dirección existente
+                                    phone  // Usar el teléfono existente
+                            );
+
+                            if (!userAdded) {
+                                Log.e("LoginUser", "Error al guardar el usuario en la base de datos local.");
+                            }
+
+                            // Guardar los datos en SharedPreferences
+                            saveUserDataToPreferences(userName, userEmail, image, null, userId);
+
+                            // Navegar a la pantalla principal
+                            navigateToMainActivity(userName, userEmail, image, null, userId);
                         }
                     } else {
                         // Verifica el error del login

@@ -45,6 +45,7 @@
             android:layout_height="wrap_content"
             android:hint="Address"
             android:text=""
+            android:focusable="false"
             android:layout_marginBottom="8dp" />
 
         <!-- Button for Select Address -->

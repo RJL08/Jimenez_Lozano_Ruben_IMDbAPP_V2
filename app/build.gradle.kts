@@ -73,5 +73,8 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     implementation ("com.squareup.picasso:picasso:2.71828")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation ("com.google.android.gms:play-services-maps:17.0.1")
+    implementation ("com.google.android.libraries.places:places:2.6.0")
+
 }
 
