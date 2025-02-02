@@ -113,17 +113,13 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Favo
     private void removeMovie(int position, Movies movie) {
 
         try {
-            // Validamos el índice para ver si sigue siendo valido a la hora de borrar
             if (position < 0 || position >= favoriteList.size()) {
                 Toast.makeText(context, "Error: índice inválido", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Creamos una instancia de FavoritesManager para gestionar favoritos
-            FavoritesManager favoritesManager = new FavoritesManager(context);
             SharedPreferences prefs = context.getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
-            String userEmail = prefs.getString("userEmail", "");
-            String userId = prefs.getString("userId", "");///*********************
+            String userId = prefs.getString("userId", "");
 
             if (userId.isEmpty()) {
                 Toast.makeText(context, "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
@@ -136,26 +132,16 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Favo
                 return;
             }
 
-            // Eliminamos de la base de datos en un hilo secundario para no bloquear la interfaz
+            // Eliminar la película usando FavoritesManager
             new Thread(() -> {
-                boolean isRemoved = false;
-                try {
-                    isRemoved = favoritesManager.removeFavorite(userId, movie.getTitle());
-                } catch (SQLiteException e) {
-                    ((Activity) context).runOnUiThread(() -> {
-                        Toast.makeText(context, "Error en la base de datos: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        Log.e("FavoritesAdapter", "SQLiteException: " + e.getMessage());
-                    });
-                }
+                FavoritesManager favoritesManager = new FavoritesManager(context);
+                boolean isRemoved = favoritesManager.deleteMovie(userId, movie.getId());
 
                 if (isRemoved) {
-                    // Actualizamos la lista en el hilo principal
                     ((Activity) context).runOnUiThread(() -> {
-                        synchronized (favoriteList) {
-                            favoriteList.remove(position);
-                            notifyItemRemoved(position);
-                            notifyItemRangeChanged(position, favoriteList.size()); // Ajustar posiciones restantes
-                        }
+                        favoriteList.remove(position);
+                        notifyItemRemoved(position);
+                        notifyItemRangeChanged(position, favoriteList.size());
                         Toast.makeText(context, movie.getTitle() + " eliminado de favoritos", Toast.LENGTH_SHORT).show();
                     });
                 } else {
@@ -163,12 +149,8 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Favo
                         Toast.makeText(context, "Error al eliminar de favoritos", Toast.LENGTH_SHORT).show();
                     });
                 }
-                // Actualizamos la lista en el hilo principal
             }).start();
 
-        } catch (IndexOutOfBoundsException e) {
-            Toast.makeText(context, "Error: índice fuera de rango. " + e.getMessage(), Toast.LENGTH_LONG).show();
-            Log.e("FavoritesAdapter", "IndexOutOfBoundsException: " + e.getMessage());
         } catch (Exception e) {
             Toast.makeText(context, "Error inesperado: " + e.getMessage(), Toast.LENGTH_LONG).show();
             Log.e("FavoritesAdapter", "Unexpected Exception: " + e.getMessage());

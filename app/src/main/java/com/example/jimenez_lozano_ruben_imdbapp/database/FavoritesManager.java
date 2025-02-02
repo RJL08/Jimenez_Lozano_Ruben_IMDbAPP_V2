@@ -9,6 +9,7 @@ import android.util.Log;
 
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 
 import java.util.ArrayList;
@@ -60,23 +61,13 @@ public class FavoritesManager {
         values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);//********
 
 
-        Log.d("ADDFAVORITE", "Insertando en la BD: " +
-                "id=" + id +
-                ", userId=" + userId +
-                ", userEmail=" + userEmail +
-                ", movieTitle=" + movieTitle +
-                ", movieImage=" + movieImage +
-                ", releaseDate=" + releaseDate +
-                ", movieRating=" + movieRating +
-                ", overview=" + overview);
-
-
         long result = db.insert(FavoritesDatabaseHelper.TABLE_FAVORITES, null, values);
 
        db.close();
         // Sincronizar con Firestore
 
-        new FavoritesSync().syncLocalToFirestore(context, dbHelper);
+        FavoritesSync favoritesSync = new FavoritesSync();
+        favoritesSync.syncLocalToFirestore(context, dbHelper);
 
         // Devolvemos true si la inserción fue exitosaosa
         return result != -1;
@@ -98,8 +89,7 @@ public class FavoritesManager {
         db.close();
         // Sincronizar con Firestore
         if (rowsDeleted > 0) {
-            // Sincronizar eliminación con Firestore en tiempo real
-            new FavoritesSync().syncLocalToFirestore(context, dbHelper);
+           new FavoritesSync().syncLocalToFirestore(context, dbHelper);
         }
 
 
@@ -149,4 +139,50 @@ public class FavoritesManager {
         }
         return favoriteMovies;
     }
+
+    /**
+     * Metodo para eliminar una pelicula de la base de datos local y de Firestore.
+     * @param userId
+     * @param movieId
+     * @return
+     */
+    public boolean deleteMovie(String userId, String movieId) {
+        boolean isDeletedFromLocal = false;
+
+        try {
+            // 1. Eliminar de la base de datos local
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            int rowsDeleted = db.delete(
+                    FavoritesDatabaseHelper.TABLE_FAVORITES,
+                    FavoritesDatabaseHelper.COLUMN_USER_ID + "=? AND " + FavoritesDatabaseHelper.COLUMN_FAVORITE_ID + "=?",
+                    new String[]{userId, movieId}
+            );
+            db.close();
+
+            if (rowsDeleted > 0) {
+                isDeletedFromLocal = true;
+                Log.d("DeleteMovie", "Película eliminada de SQLite: " + movieId);
+            } else {
+                Log.e("DeleteMovie", "Error al eliminar de SQLite. movieId: " + movieId + ", userId: " + userId);
+            }
+
+            // 2. Eliminar de Firestore si fue eliminada de SQLite
+            if (isDeletedFromLocal) {
+                FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+                firestore.collection("favorites")
+                        .document(userId)
+                        .collection("movies")
+                        .document(movieId)
+                        .delete()
+                        .addOnSuccessListener(aVoid -> Log.d("DeleteMovie", "Película eliminada de Firestore: " + movieId))
+                        .addOnFailureListener(e -> Log.e("DeleteMovie", "Error al eliminar de Firestore: " + e.getMessage(), e));
+            }
+        } catch (Exception e) {
+            Log.e("DeleteMovie", "Error general al eliminar película: " + e.getMessage(), e);
+        }
+
+        return isDeletedFromLocal;
+    }
 }
+
+

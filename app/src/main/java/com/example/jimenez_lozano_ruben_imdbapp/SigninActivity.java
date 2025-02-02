@@ -51,7 +51,10 @@ import java.util.Date;
 import java.util.Locale;
 import com.facebook.FacebookSdk;
 import org.json.JSONObject;
-
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentSnapshot;
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
 
 @SuppressWarnings("deprecation")
 
@@ -194,6 +197,84 @@ public class SigninActivity extends AppCompatActivity {
         configureLoginButton();
         configureRegisterButton();
     }
+
+    private void checkAndSyncUserData(FirebaseUser firebaseUser) {
+        String userId = firebaseUser.getUid(); // Obtener el ID del usuario autenticado
+
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+        //  1. Verificamos si el usuario EXISTE en la colección "users"
+        firestore.collection("users").document(userId).get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        //  2. Si el usuario existe, obtenemos sus datos de la nube
+                        String name = documentSnapshot.getString("name");
+                        String email = documentSnapshot.getString("email");
+                        String photoUrl = documentSnapshot.getString("image");
+                        String address = documentSnapshot.getString("address");
+                        String phone = documentSnapshot.getString("phone");
+
+                        //  3. Guardamos los datos en SharedPreferences
+                        saveUserDataToPreferences(name, email, photoUrl, "firebase.com", userId);
+
+                        //  4. Guardamos los datos en SQLite
+                        UsersManager usersManager = new UsersManager(this);
+                        boolean registered = usersManager.registerUserOnSignIn(
+                                userId, name, email, photoUrl, null, address, phone
+                        );
+
+                        if (!registered) {
+                            Log.e("SyncUserData", "Error al registrar el usuario en la base de datos local.");
+                        }
+
+                        //  5. Sincronizamos la tabla de favoritos
+                        syncFavoritesFromFirestore(userId);
+
+                    } else {
+                        //  Si el usuario NO existe en Firestore, mostramos un mensaje y evitamos el acceso
+                        Log.e("SyncUserData", "El usuario no está registrado en Firestore.");
+                        Toast.makeText(this, "Error: No estás registrado. Por favor, regístrate primero.", Toast.LENGTH_LONG).show();
+
+                        // Opcional: Cerrar sesión automáticamente si el usuario no está en Firestore
+                        FirebaseAuth.getInstance().signOut();
+                    }
+                })
+                .addOnFailureListener(e -> Log.e("SyncUserData", "Error al verificar usuario en Firestore: ", e));
+    }
+
+    private void syncFavoritesFromFirestore(String userId) {
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        FavoritesDatabaseHelper dbHelper = new FavoritesDatabaseHelper(this);
+
+        //  Verificar si hay favoritos en Firestore para este usuario
+        firestore.collection("favorites").document(userId).collection("movies").get()
+                .addOnSuccessListener(querySnapshot -> {
+                    SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+                    //  Borrar los favoritos locales antes de sincronizar
+                    db.execSQL("DELETE FROM " + FavoritesDatabaseHelper.TABLE_FAVORITES +
+                            " WHERE " + FavoritesDatabaseHelper.COLUMN_USER_ID + "='" + userId + "'");
+
+                    for (DocumentSnapshot document : querySnapshot.getDocuments()) {
+                        ContentValues values = new ContentValues();
+                        values.put(FavoritesDatabaseHelper.COLUMN_FAVORITE_ID, document.getId());
+                        values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);
+                        values.put(FavoritesDatabaseHelper.COLUMN_USER_EMAIL, document.getString("userEmail"));
+                        values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE, document.getString("movieTitle"));
+                        values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_IMAGE, document.getString("movieImage"));
+                        values.put(FavoritesDatabaseHelper.COLUMN_RELEASE_DATE, document.getString("releaseDate"));
+                        values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_RATING, document.getString("movieRating"));
+                        values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_OVERVIEW, document.getString("overview"));
+
+                        db.insert(FavoritesDatabaseHelper.TABLE_FAVORITES, null, values);
+                    }
+
+                    db.close();
+                    Log.d("SyncFavorites", "Favoritos sincronizados desde Firestore a SQLite.");
+                })
+                .addOnFailureListener(e -> Log.e("SyncFavorites", "Error al sincronizar favoritos: ", e));
+    }
+
 
     private void registerUser(String email, String password) {
         firebaseAuth.createUserWithEmailAndPassword(email, password)
@@ -385,6 +466,7 @@ public class SigninActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
+                            checkAndSyncUserData(user);
                             // Obtener los datos del usuario
                             String userId = user.getUid();
                             String userEmail = user.getEmail();
@@ -395,6 +477,7 @@ public class SigninActivity extends AppCompatActivity {
                                 Log.e("LoginUser", "Error: Datos del usuario inválidos.");
                                 return;
                             }
+
 
                             // Guardar en la base de datos local
                             UsersManager usersManager = new UsersManager(this);
@@ -435,8 +518,6 @@ public class SigninActivity extends AppCompatActivity {
                             if (!userAdded) {
                                 Log.e("LoginUser", "Error al guardar el usuario en la base de datos local.");
                             }
-
-
 
                             // Guardar los datos en SharedPreferences
                             saveUserDataToPreferences(userName, userEmail, image, null, userId);
@@ -490,6 +571,10 @@ public class SigninActivity extends AppCompatActivity {
         GraphRequest request = GraphRequest.newMeRequest(token, (object, response) -> {
             try {
                 if (object != null) {
+
+
+                    // Llamada para sincronizar datos del usuario
+                    checkAndSyncUserData(firebaseUser);
                     // Obtener datos del perfil
                     String name = object.optString("name"); // Nombre del usuario
                     String email = object.optString("email"); // Correo electrónico del usuario (puede no estar disponible)
@@ -538,9 +623,12 @@ public class SigninActivity extends AppCompatActivity {
                     if (!registered) {
                         Log.e("fetchFacebookUserData", "Error al registrar el usuario en la base de datos local.");
                     }
+                    UsersSync usersSync = new UsersSync();
+                    FavoritesDatabaseHelper dbHelper = new FavoritesDatabaseHelper(this);
+                    FavoritesSync favoritesSync = new FavoritesSync();
 
-                    // Opcional: Sincronizar la base de datos local con Firestore
-                    new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+                    usersSync.syncFirestoreToLocal(this); // Sincronizar usuarios
+                    favoritesSync.syncFirestoreToLocal(this, dbHelper); // Sincronizar favoritos
 
                     // Navegar a MainActivity con los datos completos
                     navigateToMainActivity(name, email, photoUrl, "facebook.com", firebaseUser.getUid());
@@ -665,6 +753,15 @@ public class SigninActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
+
+                            checkAndSyncUserData(user);
+                            // Sincronizar usuarios y favoritos desde Firestore
+                            UsersSync usersSync = new UsersSync();
+                            FavoritesDatabaseHelper dbHelper = new FavoritesDatabaseHelper(this);
+                            usersSync.syncFirestoreToLocal(this); // Sincronizar usuarios
+                            FavoritesSync favoritesSync = new FavoritesSync();
+                            favoritesSync.syncFirestoreToLocal(this, dbHelper);
+
                             String providerId = "google.com";
                             String userId = user.getUid();
                             String email = user.getEmail();

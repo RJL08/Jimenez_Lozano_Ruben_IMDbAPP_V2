@@ -10,8 +10,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
-
 import java.util.Map;
+
 
 public class FavoritesSync {
 
@@ -105,4 +105,7 @@ public class FavoritesSync {
                 })
                 .addOnFailureListener(e -> Log.e(TAG, "Error al descargar favoritos desde Firestore.", e));
     }
+
+
+
 }
