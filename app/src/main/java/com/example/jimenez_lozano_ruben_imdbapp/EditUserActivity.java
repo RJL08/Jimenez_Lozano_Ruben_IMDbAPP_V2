@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -15,8 +16,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Spinner;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
@@ -27,15 +30,12 @@ import androidx.appcompat.widget.Toolbar;
 import android.Manifest;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
+import com.hbb20.CountryCodePicker;
 import com.squareup.picasso.Picasso;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -53,6 +53,14 @@ public class EditUserActivity extends AppCompatActivity {
     private static final int PERMISSION_CAMERA_REQUEST_CODE = 200;
     private static final int PERMISSION_READ_STORAGE_REQUEST_CODE = 201;
     private ActivityResultLauncher<Intent> selectAddressLauncher;
+    // Launcher para abrir la galería (obtiene un Uri)
+    private ActivityResultLauncher<String> galleryLauncher;
+    // Launcher para solicitar el permiso de lectura de imágenes
+    private ActivityResultLauncher<String> requestGalleryPermissionLauncher;
+    private Spinner spinnerCountry;
+    private CountryCodePicker ccp;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,11 +69,13 @@ public class EditUserActivity extends AppCompatActivity {
         etName = findViewById(R.id.etName);
         etEmail = findViewById(R.id.etEmail);
         etAddress = findViewById(R.id.etAddress);
+        ccp = findViewById(R.id.ccp);
         etPhone = findViewById(R.id.etPhone);
         btnSelectAddress = findViewById(R.id.btnSelectAddress);
         btnSelectImage = findViewById(R.id.btnSelectImage);
         btnSave = findViewById(R.id.btnSave);
         ivProfileImage = findViewById(R.id.ivProfileImage);
+
 
         // Configurar toolbar y otros elementos
         setupToolbar();
@@ -104,9 +114,59 @@ public class EditUserActivity extends AppCompatActivity {
                 }
         );
 
+        // Registrar el launcher para abrir la galería usando GetContent
+        galleryLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                new ActivityResultCallback<Uri>() {
+                    @Override
+                    public void onActivityResult(Uri uri) {
+                        if (uri != null) {
+                            // Muestra la imagen seleccionada en el ImageView
+                            ivProfileImage.setImageURI(uri);
+                        }
+                    }
+                }
+        );
 
+        // Registrar el launcher para solicitar el permiso de lectura de imágenes
+        requestGalleryPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                new ActivityResultCallback<Boolean>() {
+                    @Override
+                    public void onActivityResult(Boolean isGranted) {
+                        if (isGranted) {
+                            // Si el permiso es concedido, abre la galería
+                            openGallery();
+                        } else {
+                            Toast.makeText(EditUserActivity.this, "Permiso de lectura de imágenes denegado", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+        );
+
+        // Opcional: puedes sincronizar el número telefónico con el código del país seleccionado
+        ccp.setOnCountryChangeListener(() -> {
+            String dialCode = ccp.getSelectedCountryCodeWithPlus();
+            String currentPhone = etPhone.getText().toString().trim();
+            if (!currentPhone.startsWith(dialCode)) {
+                etPhone.setText(dialCode + " ");
+                etPhone.setSelection(etPhone.getText().length());
+            }
+        });
 
     }
+
+    // Método para validar que el número de teléfono empiece con el código seleccionado
+    private boolean validatePhoneNumber() {
+        String dialCode = ccp.getSelectedCountryCodeWithPlus();
+        String phoneInput = etPhone.getText().toString().trim();
+        if (!phoneInput.startsWith(dialCode)) {
+            Toast.makeText(this, "El número de teléfono debe comenzar con " + dialCode, Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        return true;
+    }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
@@ -134,6 +194,7 @@ public class EditUserActivity extends AppCompatActivity {
             }
         }
     }
+
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
@@ -164,26 +225,33 @@ public class EditUserActivity extends AppCompatActivity {
         startActivityForResult(intent, REQUEST_IMAGE_CAPTURE);
     }
 
+    // Método para abrir la galería usando el launcher
     private void openGallery() {
-        Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setType("image/*");
-        startActivityForResult(intent, REQUEST_IMAGE_PICK);
+        galleryLauncher.launch("image/*");
     }
 
-    private boolean checkReadStoragePermission() {
-        int readStoragePermission = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-        );
-        return readStoragePermission == PackageManager.PERMISSION_GRANTED;
+    // Comprueba el permiso adecuado para leer imágenes: en Android 13+ se usa READ_MEDIA_IMAGES, en versiones anteriores se usa READ_EXTERNAL_STORAGE
+    private boolean checkReadImagesPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
+                    == PackageManager.PERMISSION_GRANTED;
+        } else {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
     }
 
-    private void requestReadStoragePermission() {
-        ActivityCompat.requestPermissions(
-                this,
-                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                PERMISSION_READ_STORAGE_REQUEST_CODE
-        );
+    // Solicita el permiso adecuado para leer imágenes
+    private void requestReadImagesPermission() {
+        String permissionToRequest;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionToRequest = Manifest.permission.READ_MEDIA_IMAGES;
+        } else {
+            permissionToRequest = Manifest.permission.READ_EXTERNAL_STORAGE;
+        }
+        ActivityCompat.requestPermissions(this,
+                new String[]{permissionToRequest},
+                PERMISSION_READ_STORAGE_REQUEST_CODE);
     }
 
     private boolean checkCameraPermission() {
@@ -213,14 +281,13 @@ public class EditUserActivity extends AppCompatActivity {
     private void showImagePickerDialog() {
         // Opciones del diálogo
         String[] options = {"Hacer foto", "Elegir de la galería"};
-
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Seleccionar Imagen");
         builder.setItems(options, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 if (which == 0) {
-                    // Hacer foto
+                    // Hacer foto (se mantiene el código existente para cámara)
                     if (checkCameraPermission()) {
                         openCamera();
                     } else {
@@ -228,10 +295,10 @@ public class EditUserActivity extends AppCompatActivity {
                     }
                 } else if (which == 1) {
                     // Elegir de la galería
-                    if (checkReadStoragePermission()) {
+                    if (checkReadImagesPermission()) {
                         openGallery();
                     } else {
-                        requestReadStoragePermission();
+                        requestReadImagesPermission();
                     }
                 }
             }
@@ -275,22 +342,37 @@ public class EditUserActivity extends AppCompatActivity {
                             if (phone != null) etPhone.setText(phone);
                             Log.d("EditUser", "Valor del campo image: " + image);
 
-                            // Opción 1: Usando File
-                            File imageFile = new File(image);
-                            if (imageFile.exists()) {
-                                Picasso.get()
-                                        .load(imageFile)
-                                        .placeholder(R.drawable.esperando)
-                                        .error(R.drawable.ic_launcher_foreground)
-                                        .into(ivProfileImage);
+                            // Cargar la imagen según sea una URL remota o una ruta local
+                            if (image != null && !image.isEmpty()) {
+                                if (image.startsWith("http://") || image.startsWith("https://")) {
+                                    // Se asume que es una URL remota
+                                    Picasso.get()
+                                            .load(image)
+                                            .placeholder(R.drawable.esperando)
+                                            .error(R.drawable.ic_launcher_foreground)
+                                            .into(ivProfileImage);
+                                } else {
+                                    // Se asume que es una ruta local
+                                    File imageFile = new File(image);
+                                    if (imageFile.exists()) {
+                                        Picasso.get()
+                                                .load(imageFile)
+                                                .placeholder(R.drawable.esperando)
+                                                .error(R.drawable.ic_launcher_foreground)
+                                                .into(ivProfileImage);
+                                    } else {
+                                        // Si el archivo no existe, se intenta cargar anteponiendo "file://"
+                                        String imageUri = "file://" + image;
+                                        Picasso.get()
+                                                .load(imageUri)
+                                                .placeholder(R.drawable.esperando)
+                                                .error(R.drawable.ic_launcher_foreground)
+                                                .into(ivProfileImage);
+                                    }
+                                }
                             } else {
-                                // Opción 2: Usar URI con prefijo "file://"
-                                String imageUri = "file://" + image;
-                                Picasso.get()
-                                        .load(imageUri)
-                                        .placeholder(R.drawable.esperando)
-                                        .error(R.drawable.ic_launcher_foreground)
-                                        .into(ivProfileImage);
+                                // Opcional: asigna una imagen por defecto si no hay ruta
+                                ivProfileImage.setImageResource(R.drawable.ic_launcher_foreground);
                             }
                         } else {
                             Log.d("EditUser", "El usuario no tiene un documento en Firestore.");
@@ -341,6 +423,8 @@ public class EditUserActivity extends AppCompatActivity {
         db.collection("users").document(uid)
                 .set(data, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
+
+
                     Toast.makeText(this, "Datos Actualizados con Éxito", Toast.LENGTH_SHORT).show();
                     Log.d("EditUser", "Usuario actualizado en Firestore");
                     new UsersSync().syncFirestoreToLocal(this);

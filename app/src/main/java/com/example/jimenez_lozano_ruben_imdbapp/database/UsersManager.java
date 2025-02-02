@@ -27,6 +27,69 @@ public class UsersManager {
 
 
 
+    /**
+     * Registra (o inserta) al usuario en la base de datos local y sincroniza con Firestore.
+     * Este método se utiliza al iniciar sesión por primera vez.
+     *
+     * @param userId    El ID único del usuario (Firebase UID).
+     * @param name      El nombre del usuario.
+     * @param email     El correo electrónico del usuario.
+     * @param photoUrl  La URL de la foto de perfil (obtenida de Google o Facebook).
+     * @param loginTime La hora actual formateada (por ejemplo, "yyyy-MM-dd HH:mm:ss").
+     * @param address   Dirección (puede estar vacía al inicio).
+     * @param phone     Teléfono (puede estar vacío al inicio).
+     * @return true si se registró o actualizó correctamente, false en caso contrario.
+     */
+    public boolean registerUserOnSignIn(String userId, String name, String email, String photoUrl,
+                                        String loginTime, String address, String phone) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        // Asignamos los valores a actualizar
+        if (name != null && !name.isEmpty()) {
+            values.put(FavoritesDatabaseHelper.COLUMN_NAME, name);
+        }
+        if (email != null) {
+            values.put(FavoritesDatabaseHelper.COLUMN_EMAIL, email);
+        }
+        if (photoUrl != null && !photoUrl.isEmpty()) {
+            values.put(FavoritesDatabaseHelper.COLUMN_IMAGE, photoUrl);
+        }
+        if (address != null && !address.isEmpty()) {
+            values.put(FavoritesDatabaseHelper.COLUMN_ADDRESS, address);
+        }
+        if (phone != null && !phone.isEmpty()) {
+            values.put(FavoritesDatabaseHelper.COLUMN_PHONE, phone);
+        }
+        if (loginTime != null) {
+            values.put(FavoritesDatabaseHelper.COLUMN_LOGIN_TIME, loginTime);
+        }
+
+        // Intentamos actualizar la fila (en caso de que ya exista)
+        int rowsUpdated = db.update(
+                FavoritesDatabaseHelper.TABLE_USERS,
+                values,
+                FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",
+                new String[]{userId}
+        );
+
+        boolean success;
+        if (rowsUpdated == 0) {
+            // Si no se actualizó, insertamos un nuevo registro
+            values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);
+            long result = db.insert(FavoritesDatabaseHelper.TABLE_USERS, null, values);
+            success = (result != -1);
+        } else {
+            success = true;
+        }
+        db.close();
+
+        // Sincronizamos la base de datos local con Firestore (esto actualizará también la nube)
+        new UsersSync().syncLocalToFirestore(context, dbHelper);
+
+        return success;
+    }
+
 
     /**
      * Actualiza un usuario existente en la tabla users.
@@ -50,7 +113,7 @@ public class UsersManager {
         }
 
         // Si el nombre es nulo, asignamos "No Name"
-        if (name != null && name.isEmpty()) {
+        if (name != null && !name.isEmpty()) {
             values.put(FavoritesDatabaseHelper.COLUMN_NAME, name);
 
         }
@@ -61,7 +124,7 @@ public class UsersManager {
         }
 
         // Si la imagen no es nula, la asignamos a los valores a actualizar
-        if (image != null && image.isEmpty()) {
+        if (image != null && !image.isEmpty()) {
             values.put(FavoritesDatabaseHelper.COLUMN_IMAGE, image);
         }
 

@@ -40,6 +40,7 @@ import com.google.firebase.auth.AuthCredential;
 
 import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthUserCollisionException;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
 import java.text.SimpleDateFormat;
@@ -485,9 +486,10 @@ public class SigninActivity extends AppCompatActivity {
                     String email = object.optString("email"); // Correo electrónico del usuario (puede no estar disponible)
                     String facebookId = object.optString("id"); // ID único del usuario en Facebook
 
+                    String photoUrl = null;
                     // Acceder a la URL de la foto de perfil desde el campo "picture"
                     JSONObject pictureObject = object.optJSONObject("picture");
-                    String photoUrl = null;
+
                     if (pictureObject != null) {
                         JSONObject dataObject = pictureObject.optJSONObject("data");
                         if (dataObject != null) {
@@ -504,36 +506,37 @@ public class SigninActivity extends AppCompatActivity {
                     String address = "";  // Asignamos vacío como valor predeterminado para la dirección
                     String phone = "";    // Asignamos vacío como valor predeterminado para el teléfono
 
+
                     // Guardar datos en SharedPreferences
                     saveUserDataToPreferences(name, email, photoUrl, "facebook.com", firebaseUser.getUid());//************************
 
                     // Obtener la fecha y hora actual como login_time
                     String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
 
-                    // Guardar en la base de datos
+                    // Registra el usuario al iniciar sesión en la base de datos local y sincroniza con la nube
                     UsersManager usersManager = new UsersManager(this);
-                    Log.d("SigninActivity", "Guardando usuario: UID=" + firebaseUser.getUid() +//**************
-                            ", Name=" + name +
-                            ", Email=" + email +
-                            ", PhotoUrl=" + photoUrl);
-                    // Llamar a addOrUpdateUser con los nuevos campos
-                    boolean userAdded = usersManager.addOrUpdateUser(
-                            firebaseUser.getUid(), // user_id proporcionado por Firebase
+                    boolean registered = usersManager.registerUserOnSignIn(
+                            firebaseUser.getUid(),
                             name,
-                            email != null ? email : "Correo no disponible", // Si el email es nulo
-                            FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
+                            email,
+                            photoUrl,
                             loginTime,
-                            photoUrl, // Imagen
-                            address, // Dirección
-                            phone  // Teléfono
+                            address,
+                            phone
                     );
 
-                    if (!userAdded) {
-                        Log.e("fetchFacebookUserData", "Error al guardar el usuario en la base de datos.");
+
+                    if (!registered) {
+                        Log.e("fetchFacebookUserData", "Error al registrar el usuario en la base de datos local.");
                     }
 
-                    // Navegar a MainActivity
-                    navigateToMainActivity(name, email, photoUrl, "facebook.com", firebaseUser.getUid());//*******************
+
+
+                    // Opcional: Sincronizar la base de datos local con Firestore
+                    new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+
+                    // Navegar a MainActivity con los datos completos
+                    navigateToMainActivity(name, email, photoUrl, "facebook.com", firebaseUser.getUid());
                 } else {
                     Log.e("FacebookAPI", "El objeto devuelto por la API es nulo.");
                     Toast.makeText(this, "No se pudieron obtener los datos del perfil", Toast.LENGTH_SHORT).show();
@@ -560,8 +563,6 @@ public class SigninActivity extends AppCompatActivity {
         callbackManager.onActivityResult(requestCode, resultCode, data);
     }
 
-
-
     /**
      * Manejar el resultado del SignIn de Google. Si el resultado es exitoso, autenticar con Firebase.
      * De lo contrario, mostramos un mensaje de error.
@@ -584,34 +585,53 @@ public class SigninActivity extends AppCompatActivity {
                                     Log.d("SigninActivity", "handleSignInResult: Cuenta vinculada exitosamente.");
                                     FirebaseUser user = linkTask.getResult().getUser();
                                     if (user != null) {
-                                        // Obtén el providerId (en este caso, "google.com")
                                         String providerId = "google.com";
-                                        // Asegúrate de manejar null para la foto de perfil
-                                        String photoUrl = (user.getPhotoUrl() != null) ? user.getPhotoUrl().toString() : "https://lh3.googleusercontent.com/a/default-user";
+                                        String photoUrl = (user.getPhotoUrl() != null)
+                                                ? user.getPhotoUrl().toString()
+                                                : "https://lh3.googleusercontent.com/a/default-user";
 
                                         // Guarda los datos del usuario en SharedPreferences
-                                        saveUserDataToPreferences(
-                                                user.getDisplayName(),
-                                                user.getEmail(),
-                                                photoUrl,
-                                                "google.com",
-                                                user.getUid()//********
-
+                                        saveUserDataToPreferences(user.getDisplayName(), user.getEmail(), photoUrl, "google.com", user.getUid()
                                         );
 
                                         // Navega a MainActivity
-                                        navigateToMainActivity(
-                                                user.getDisplayName(),
-                                                user.getEmail(),
-                                                photoUrl,
-                                                providerId,
-                                                user.getUid()//********
-
-
+                                        navigateToMainActivity(user.getDisplayName(), user.getEmail(), photoUrl, providerId, user.getUid()
                                         );
                                     }
                                 } else {
-                                    Log.e("SigninActivity", "handleSignInResult: Error al vincular cuenta.", linkTask.getException());
+                                    // Manejo de la excepción de colisión de credenciales
+                                    Exception ex = linkTask.getException();
+                                    if (ex instanceof FirebaseAuthUserCollisionException) {
+                                        Log.e("SigninActivity", "handleSignInResult: Credenciales ya vinculadas a otra cuenta. Iniciando sesión.", ex);
+                                        firebaseAuth.signInWithCredential(googleCredential)
+                                                .addOnCompleteListener(signInTask -> {
+                                                    if (signInTask.isSuccessful()) {
+                                                        Log.d("SigninActivity", "handleSignInResult: Iniciado sesión con credenciales existentes.");
+                                                        FirebaseUser user = signInTask.getResult().getUser();
+                                                        if (user != null) {
+                                                            String providerId = "google.com";
+                                                            String photoUrl = (user.getPhotoUrl() != null)
+                                                                    ? user.getPhotoUrl().toString()
+                                                                    : "https://lh3.googleusercontent.com/a/default-user";
+
+                                                            // Guarda los datos del usuario en SharedPreferences
+                                                            saveUserDataToPreferences(user.getDisplayName(), user.getEmail(), photoUrl,
+                                                                    "google.com", user.getUid()
+                                                            );
+
+                                                            // Navega a MainActivity
+                                                            navigateToMainActivity(user.getDisplayName(), user.getEmail(), photoUrl, providerId, user.getUid()
+                                                            );
+                                                        }
+                                                    } else {
+                                                        Log.e("SigninActivity", "handleSignInResult: Error al iniciar sesión con credenciales existentes.", signInTask.getException());
+                                                        Toast.makeText(SigninActivity.this, "Error al iniciar sesión", Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
+                                    } else {
+                                        Log.e("SigninActivity", "handleSignInResult: Error al vincular cuenta.", ex);
+                                        Toast.makeText(SigninActivity.this, "Error al vincular cuenta", Toast.LENGTH_SHORT).show();
+                                    }
                                 }
                             });
                 } else {
@@ -621,6 +641,7 @@ public class SigninActivity extends AppCompatActivity {
             }
         } catch (ApiException e) {
             Log.e("SigninActivity", "handleSignInResult: Error al autenticar con Google.", e);
+            Toast.makeText(SigninActivity.this, "Error al autenticar con Google", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -638,7 +659,9 @@ public class SigninActivity extends AppCompatActivity {
                         FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
                             String providerId = "google.com";
-
+                            String userId = user.getUid();
+                            String email = user.getEmail();
+                            String name = user.getDisplayName();
                             // Construir URL de foto de perfil para Google
                             String photoUrl = user.getPhotoUrl() != null
                                     ? user.getPhotoUrl().toString()
@@ -648,45 +671,27 @@ public class SigninActivity extends AppCompatActivity {
                             // Asignar valores predeterminados para los nuevos campos
                             String address = "";  // Asignamos vacío como valor predeterminado para la dirección
                             String phone = "";    // Asignamos vacío como valor predeterminado para el teléfono
+                            // Obtener la fecha y hora actual formateada como login time
+
 
                             // Guardar datos del usuario en SharedPreferences
-                            saveUserDataToPreferences(
-                                    user.getDisplayName(),
-                                    user.getEmail(),
-                                    photoUrl,
-                                    providerId,
-                                    user.getUid()//********
-
+                            saveUserDataToPreferences(user.getDisplayName(), user.getEmail(), photoUrl, providerId, user.getUid()//********
                             );
-
-                            // Obtener la fecha y hora actual formateada como login time
                             String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
 
-                            // Guardar en la base de datos
+                            // Registrar usuario y sincronizar
                             UsersManager usersManager = new UsersManager(this);
-                            boolean userAdded = usersManager.addOrUpdateUser(
-                                    user.getUid(),             // user_id
-                                    user.getDisplayName(),     // name
-                                    user.getEmail(),           // email
-                                    FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
-                                    loginTime,                 // login_time
-                                    photoUrl,                  // image
-                                    address,                   // address
-                                    phone                      // phone
+                            boolean registered = usersManager.registerUserOnSignIn(userId, name, email, photoUrl, loginTime, address, phone
                             );
-
-
-                            if (!userAdded) {
-                                Log.e("firebaseAuthWithGoogle", "Error al guardar el usuario en la base de datos.");
+                            if (!registered) {
+                                Log.e("firebaseAuthWithGoogle", "Error al registrar el usuario en la base de datos local.");
                             }
 
+                            // Opcional: Sincronizar la base de datos local con Firestore
+                            new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+
                             // Navegar a MainActivity
-                            navigateToMainActivity(
-                                    user.getDisplayName(),
-                                    user.getEmail(),
-                                    photoUrl,
-                                    "google.com",
-                                    user.getUid()
+                            navigateToMainActivity(user.getDisplayName(), user.getEmail(), photoUrl, "google.com", user.getUid()
 
                             );
                         }
@@ -769,4 +774,7 @@ public class SigninActivity extends AppCompatActivity {
         startActivity(intent);
         finish();
     }
+
+
+
 }

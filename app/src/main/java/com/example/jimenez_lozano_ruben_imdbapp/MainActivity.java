@@ -19,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
 import com.example.jimenez_lozano_ruben_imdbapp.utils.AppLifecycleManager;
 import com.facebook.AccessToken;
 import com.facebook.FacebookSdk;
@@ -258,6 +259,7 @@ public class MainActivity extends AppCompatActivity {
             // Si no se proporciona userPhotoUrl, se asigna una imagen por defecto
             profileImageView.setImageResource(R.drawable.ic_launcher_foreground);
         }
+        new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
     }
 
 
