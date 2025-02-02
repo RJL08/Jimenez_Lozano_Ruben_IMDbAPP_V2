@@ -37,6 +37,8 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 import com.example.jimenez_lozano_ruben_imdbapp.databinding.ActivityMainBinding;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.squareup.picasso.Picasso;
 
 import java.io.File;
@@ -61,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private AppLifecycleManager appLifecycleManager;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,14 +71,13 @@ public class MainActivity extends AppCompatActivity {
         // Inicializa el SDK de Facebook
         FacebookSdk.sdkInitialize(getApplicationContext());
 
-        //llamada a la clase AppLifecycleManager
-        // Inicializar AppLifecycleManager
-        appLifecycleManager = new AppLifecycleManager(this);
 
-        // Registrar AppLifecycleManager para escuchar eventos del ciclo de vida
+        //llamada a la clase AppLifecycleManager
+        appLifecycleManager = new AppLifecycleManager(this);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             registerActivityLifecycleCallbacks(appLifecycleManager);
         }
+
 
         // Inflamos el layout principal
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -157,6 +159,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
+
+
         // Configuramos el boton de logout para cerrar sesion
         logoutButton.setOnClickListener(v -> {
             // Obtener el proveedor (Google o Facebook) desde SharedPreferences
@@ -207,6 +211,7 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
     }
+
 
     /**
      * Recupera los datos del usuario desde SharedPreferences.

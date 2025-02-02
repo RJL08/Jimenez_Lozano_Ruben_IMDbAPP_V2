@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -20,6 +21,7 @@ import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper
 import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
+import com.example.jimenez_lozano_ruben_imdbapp.utils.AppLifecycleManager;
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
@@ -69,6 +71,7 @@ public class SigninActivity extends AppCompatActivity {
     private Button loginButton;
     private Button registerButton;
     private Context context;
+    private AppLifecycleManager appLifecycleManager;
 
 
     @Override
@@ -86,14 +89,17 @@ public class SigninActivity extends AppCompatActivity {
         }).start();
 
 
+        appLifecycleManager = new AppLifecycleManager(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            registerActivityLifecycleCallbacks(appLifecycleManager);
+        }
+
             // Sincronizar usuarios
             UsersSync usersSync = new UsersSync();
             usersSync.syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
             usersSync.syncUsersFromFirestore(this);
 
-        // Sincronizar favoritos
-        FavoritesSync favoritesSync = new FavoritesSync();
-        favoritesSync.syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+
 
 
 
@@ -430,6 +436,8 @@ public class SigninActivity extends AppCompatActivity {
                                 Log.e("LoginUser", "Error al guardar el usuario en la base de datos local.");
                             }
 
+
+
                             // Guardar los datos en SharedPreferences
                             saveUserDataToPreferences(userName, userEmail, image, null, userId);
 
@@ -465,6 +473,7 @@ public class SigninActivity extends AppCompatActivity {
                         if (currentUser != null) {
                             // Llamada a la API de Facebook para obtener datos del perfil
                             fetchFacebookUserData(token ,currentUser);
+
                         }
                     } else {
                         Toast.makeText(SigninActivity.this, "Autenticación fallida", Toast.LENGTH_SHORT).show();
@@ -529,8 +538,6 @@ public class SigninActivity extends AppCompatActivity {
                     if (!registered) {
                         Log.e("fetchFacebookUserData", "Error al registrar el usuario en la base de datos local.");
                     }
-
-
 
                     // Opcional: Sincronizar la base de datos local con Firestore
                     new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));

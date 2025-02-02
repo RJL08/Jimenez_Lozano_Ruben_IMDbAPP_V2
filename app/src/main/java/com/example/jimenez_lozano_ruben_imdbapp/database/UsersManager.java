@@ -11,6 +11,9 @@ import android.util.Log;
 
 import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
 
+import java.text.SimpleDateFormat;
+import java.util.Locale;
+
 /**
  * Clase que gestiona las operaciones relacionadas con la tabla users.
  */
@@ -180,6 +183,11 @@ public class UsersManager {
         new UsersSync().syncLocalToFirestore(context, dbHelper);
         return true;
     }
+
+
+
+
+
 
     public void updateLogoutTime(String userId, String logoutTime) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();

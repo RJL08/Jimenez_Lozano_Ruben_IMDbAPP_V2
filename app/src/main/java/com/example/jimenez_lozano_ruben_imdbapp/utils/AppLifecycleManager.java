@@ -11,6 +11,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.jimenez_lozano_ruben_imdbapp.EditUserActivity;
 import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -81,6 +82,8 @@ import java.util.Locale;
      */
     @Override
     public void onActivityResumed(@NonNull Activity activity) {
+
+
         isInBackground = false; // La aplicación ya no está en segundo plano
         logoutHandler.removeCallbacks(logoutRunnable); // Cancelar logout retrasado
 
@@ -98,6 +101,11 @@ import java.util.Locale;
      */
     @Override
     public void onActivityPaused(@NonNull Activity activity) {
+        // Si la actividad es EditUserActivity, evitar registrar logout
+        if (activity instanceof EditUserActivity) {
+            return;
+        }
+
         isInBackground = true; // La aplicación está en segundo plano
         logoutHandler.postDelayed(logoutRunnable, LOGOUT_DELAY); // Programar logout
 
@@ -112,6 +120,8 @@ import java.util.Locale;
         if (!activity.isChangingConfigurations()) {
             activityReferences++; // Incrementar actividades activas
         }
+
+
     }
 
     /**

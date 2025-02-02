@@ -36,18 +36,14 @@ import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
 import com.example.jimenez_lozano_ruben_imdbapp.utils.KeystoreManager;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.UserProfileChangeRequest;
 import com.hbb20.CountryCodePicker;
 import com.squareup.picasso.Picasso;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+
 
 
 public class EditUserActivity extends AppCompatActivity {
@@ -266,8 +262,7 @@ public class EditUserActivity extends AppCompatActivity {
         // y si se requiere también permiso para escribir/almacenar (depende de tu uso)
         int cameraPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
 
-        // Si quieres asegurarte de poder guardar la foto en almacenamiento externo,
-        // también revisa WRITE_EXTERNAL_STORAGE en versiones anteriores a Android Q
+        // Verifica si el permiso para escribir/almacenar está otorgado (solo en Android 13+)
         int writeStoragePermission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
         // Dependiendo de tu caso de uso, puede que solo requieras CAMERA
@@ -275,7 +270,7 @@ public class EditUserActivity extends AppCompatActivity {
         return cameraPermission == PackageManager.PERMISSION_GRANTED
                 && writeStoragePermission == PackageManager.PERMISSION_GRANTED;
     }
-
+    // Solicita el permiso para la cámara (depende de tu caso de uso)
     private void requestCameraPermission() {
         // Solicita el permiso de cámara y almacenamiento (si lo necesitas)
         ActivityCompat.requestPermissions(
@@ -284,7 +279,7 @@ public class EditUserActivity extends AppCompatActivity {
                 PERMISSION_CAMERA_REQUEST_CODE
         );
     }
-
+    // Muestra un diálogo para seleccionar imagen (foto o de la galería)
     private void showImagePickerDialog() {
         // Opciones del diálogo
         String[] options = {"Hacer foto", "Elegir de la galería"};
@@ -323,8 +318,9 @@ public class EditUserActivity extends AppCompatActivity {
         }
     }
 
+    // Carga los datos del usuario desde la base de datos local
     private void loadUserData() {
-        // Obtener el UID del usuario autenticado (o de SharedPreferences, según tu flujo)
+        // Obtener el UID del usuario autenticado
         String uid = FirebaseAuth.getInstance().getUid();
         if (uid == null) {
             Log.e("EditUser", "No hay usuario logueado.");
@@ -449,23 +445,30 @@ public class EditUserActivity extends AppCompatActivity {
             String encryptedAddress = keystoreManager.encryptData(address);
             String encryptedPhone = keystoreManager.encryptData(phone);
 
-                        UsersManager usersManager = new UsersManager(this);
-                        boolean updated = usersManager.addOrUpdateUser(
-                                uid,
-                                name,
-                                email,
-                                FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
-                                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date()),
-                                imagePath,
-                                encryptedAddress,
-                                encryptedPhone
-                        );
-                        if (!updated) {
-                            Log.e("EditUser", "Error al guardar el usuario en la base de datos local.");
-                        }
-                        new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
 
-                       /// new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+            UsersManager usersManager = new UsersManager(this);
+            boolean updated = usersManager.registerUserOnSignIn(
+                    uid,
+                    name,
+                    email,
+                    imagePath,
+                    null,              // No se actualiza login_time al editar el perfil
+                    encryptedAddress,
+                    encryptedPhone
+            );
+                        if (!updated) {
+                            Log.e("EditUser", "Error al actualizar el usuario en la base de datos local.");
+                            Toast.makeText(this, "Error al guardar datos localmente", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                       new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+
+                        // Actualizar el perfil de FirebaseUser con el nuevo nombre y la nueva foto
+                        updateFirebaseUserProfile(name, imagePath);
+                        Toast.makeText(this, "Datos guardados y sincronizados correctamente", Toast.LENGTH_SHORT).show();
+
+
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -474,6 +477,12 @@ public class EditUserActivity extends AppCompatActivity {
     }
 
 
+    /**
+     * Metodo por el que obtenemos la direccion de la imagen seleccionada de la galeria o de la foto realizada
+     * @param bitmap
+     * @param fileName
+     * @return
+     */
     private String saveImageToInternalStorage(Bitmap bitmap, String fileName) {
         // Obtener el directorio interno de la aplicación
         File directory = getFilesDir();
@@ -489,7 +498,25 @@ public class EditUserActivity extends AppCompatActivity {
         }
     }
 
+    // Actualiza el perfil de FirebaseUser con el nuevo nombre y la nueva foto (si es necesario)
+    private void updateFirebaseUserProfile(String newName, String newPhotoUrl) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
+                    .setDisplayName(newName)
+                    .setPhotoUri(Uri.parse(newPhotoUrl))
+                    .build();
 
+            currentUser.updateProfile(profileUpdates)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Log.d("EditUser", "Perfil de usuario actualizado (nombre y foto) en FirebaseUser");
+                        } else {
+                            Log.e("EditUser", "Error al actualizar el perfil de FirebaseUser", task.getException());
+                        }
+                    });
+        }
+    }
 
 
 }

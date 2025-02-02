@@ -1,12 +1,7 @@
 package com.example.jimenez_lozano_ruben_imdbapp;
-
-import static android.app.Activity.RESULT_OK;
-
-import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.Toast;
 

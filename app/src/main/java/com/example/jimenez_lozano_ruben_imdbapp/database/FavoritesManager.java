@@ -76,7 +76,7 @@ public class FavoritesManager {
        db.close();
         // Sincronizar con Firestore
 
-            new FavoritesSync().syncLocalToFirestore(context, dbHelper);
+        new FavoritesSync().syncLocalToFirestore(context, dbHelper);
 
         // Devolvemos true si la inserción fue exitosaosa
         return result != -1;
