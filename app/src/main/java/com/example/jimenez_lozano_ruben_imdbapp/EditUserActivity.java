@@ -30,7 +30,11 @@ import androidx.appcompat.widget.Toolbar;
 import android.Manifest;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.database.UsersManager;
 import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
+import com.example.jimenez_lozano_ruben_imdbapp.utils.KeystoreManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
@@ -39,7 +43,10 @@ import com.squareup.picasso.Picasso;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 
@@ -317,69 +324,97 @@ public class EditUserActivity extends AppCompatActivity {
     }
 
     private void loadUserData() {
-        // Obtener el userId de Firebase
+        // Obtener el UID del usuario autenticado (o de SharedPreferences, según tu flujo)
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid == null) {
+            Log.e("EditUser", "No hay usuario logueado.");
+            return;
+        }
 
-            String uid = FirebaseAuth.getInstance().getUid();
-            if (uid == null) {
-                Log.e("EditUser", "No hay usuario logueado.");
-                return;
+        // Obtener el Cursor con los datos del usuario desde la base de datos local
+        UsersManager usersManager = new UsersManager(this);
+        Cursor cursor = usersManager.getUserData(uid);
+
+        if (cursor != null && cursor.moveToFirst()) {
+            // Obtener índices de las columnas
+            int nameIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_NAME);
+            int emailIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_EMAIL);
+            int addressIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_ADDRESS);
+            int phoneIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_PHONE);
+            int imageIndex = cursor.getColumnIndex(FavoritesDatabaseHelper.COLUMN_IMAGE);
+
+            // Leer los valores desde el Cursor
+            String name = cursor.getString(nameIndex);
+            String email = cursor.getString(emailIndex);
+            String encryptedAddress = cursor.getString(addressIndex);
+            String encryptedPhone = cursor.getString(phoneIndex);
+            String image = cursor.getString(imageIndex);
+
+            // Cerrar el Cursor
+            cursor.close();
+
+            // Asignar nombre y correo (estos campos no se cifran)
+            if (name != null) {
+                etName.setText(name);
+            }
+            if (email != null) {
+                etEmail.setText(email);
             }
 
-            FirebaseFirestore.getInstance().collection("users")
-                    .document(uid)
-                    .get()
-                    .addOnSuccessListener(documentSnapshot -> {
-                        if (documentSnapshot.exists()) {
-                            String name = documentSnapshot.getString("name");
-                            String email = documentSnapshot.getString("email");
-                            String address = documentSnapshot.getString("address");
-                            String phone = documentSnapshot.getString("phone");
-                            String image = documentSnapshot.getString("image");
+            // Descifrar dirección y teléfono
+            try {
+                KeystoreManager keystoreManager = new KeystoreManager();
+                if (encryptedAddress != null && !encryptedAddress.isEmpty()) {
+                    String decryptedAddress = keystoreManager.decryptData(encryptedAddress);
+                    etAddress.setText(decryptedAddress);
+                } else {
+                    etAddress.setText("");
+                }
+                if (encryptedPhone != null && !encryptedPhone.isEmpty()) {
+                    String decryptedPhone = keystoreManager.decryptData(encryptedPhone);
+                    etPhone.setText(decryptedPhone);
+                } else {
+                    etPhone.setText("");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Error al descifrar datos", Toast.LENGTH_SHORT).show();
+            }
 
-                            if (name != null) etName.setText(name);
-                            if (email != null) etEmail.setText(email);
-                            if (address != null) etAddress.setText(address);
-                            if (phone != null) etPhone.setText(phone);
-                            Log.d("EditUser", "Valor del campo image: " + image);
-
-                            // Cargar la imagen según sea una URL remota o una ruta local
-                            if (image != null && !image.isEmpty()) {
-                                if (image.startsWith("http://") || image.startsWith("https://")) {
-                                    // Se asume que es una URL remota
-                                    Picasso.get()
-                                            .load(image)
-                                            .placeholder(R.drawable.esperando)
-                                            .error(R.drawable.ic_launcher_foreground)
-                                            .into(ivProfileImage);
-                                } else {
-                                    // Se asume que es una ruta local
-                                    File imageFile = new File(image);
-                                    if (imageFile.exists()) {
-                                        Picasso.get()
-                                                .load(imageFile)
-                                                .placeholder(R.drawable.esperando)
-                                                .error(R.drawable.ic_launcher_foreground)
-                                                .into(ivProfileImage);
-                                    } else {
-                                        // Si el archivo no existe, se intenta cargar anteponiendo "file://"
-                                        String imageUri = "file://" + image;
-                                        Picasso.get()
-                                                .load(imageUri)
-                                                .placeholder(R.drawable.esperando)
-                                                .error(R.drawable.ic_launcher_foreground)
-                                                .into(ivProfileImage);
-                                    }
-                                }
-                            } else {
-                                // Opcional: asigna una imagen por defecto si no hay ruta
-                                ivProfileImage.setImageResource(R.drawable.ic_launcher_foreground);
-                            }
-                        } else {
-                            Log.d("EditUser", "El usuario no tiene un documento en Firestore.");
-                        }
-                    })
-                    .addOnFailureListener(e ->
-                            Log.e("EditUser", "Error al cargar datos de usuario: " + e.getMessage(), e));
+            // Cargar la imagen en el ImageView
+            if (image != null && !image.isEmpty()) {
+                if (image.startsWith("http://") || image.startsWith("https://")) {
+                    // Se asume que es una URL remota
+                    Picasso.get()
+                            .load(image)
+                            .placeholder(R.drawable.esperando)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(ivProfileImage);
+                } else {
+                    // Se asume que es una ruta local
+                    File imageFile = new File(image);
+                    if (imageFile.exists()) {
+                        Picasso.get()
+                                .load(imageFile)
+                                .placeholder(R.drawable.esperando)
+                                .error(R.drawable.ic_launcher_foreground)
+                                .into(ivProfileImage);
+                    } else {
+                        // Si el archivo no existe, se intenta cargar anteponiendo "file://"
+                        String imageUri = "file://" + image;
+                        Picasso.get()
+                                .load(imageUri)
+                                .placeholder(R.drawable.esperando)
+                                .error(R.drawable.ic_launcher_foreground)
+                                .into(ivProfileImage);
+                    }
+                }
+            } else {
+                ivProfileImage.setImageResource(R.drawable.ic_launcher_foreground);
+            }
+        } else {
+            Log.d("EditUser", "El usuario no se encontró en la base de datos local.");
+        }
     }
 
 
@@ -407,33 +442,35 @@ public class EditUserActivity extends AppCompatActivity {
         Bitmap bitmap = ((BitmapDrawable) ivProfileImage.getDrawable()).getBitmap();
         // Guardar la imagen y obtener la ruta
         String imagePath = saveImageToInternalStorage(bitmap, "profile_image.png");
+        try {
+            // Instanciar el KeystoreManager para cifrar los datos sensibles
+            KeystoreManager keystoreManager = new KeystoreManager();
+            // Encriptar la dirección y el teléfono
+            String encryptedAddress = keystoreManager.encryptData(address);
+            String encryptedPhone = keystoreManager.encryptData(phone);
 
-        // Crear un Map con los datos a guardar en Firestore
-        Map<String, Object> data = new HashMap<>();
-        data.put("name", name);
-        data.put("email", email);
-        data.put("address", address);
-        data.put("phone", phone);
-        if (imagePath != null && !imagePath.isEmpty()) {
-            data.put("image", imagePath);
+                        UsersManager usersManager = new UsersManager(this);
+                        boolean updated = usersManager.addOrUpdateUser(
+                                uid,
+                                name,
+                                email,
+                                FavoritesDatabaseHelper.COLUMN_LOGIN_TIME,
+                                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date()),
+                                imagePath,
+                                encryptedAddress,
+                                encryptedPhone
+                        );
+                        if (!updated) {
+                            Log.e("EditUser", "Error al guardar el usuario en la base de datos local.");
+                        }
+                        new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+
+                       /// new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error al encriptar los datos", Toast.LENGTH_SHORT).show();
         }
-
-        // Actualizar (o crear) el documento de usuario en Firestore con merge para conservar datos existentes
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("users").document(uid)
-                .set(data, SetOptions.merge())
-                .addOnSuccessListener(aVoid -> {
-
-
-                    Toast.makeText(this, "Datos Actualizados con Éxito", Toast.LENGTH_SHORT).show();
-                    Log.d("EditUser", "Usuario actualizado en Firestore");
-                    new UsersSync().syncFirestoreToLocal(this);
-
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Error al actualizar datos", Toast.LENGTH_SHORT).show();
-                    Log.e("EditUser", "Fallo al actualizar Firestore: " + e.getMessage(), e);
-                });
     }
 
 

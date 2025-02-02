@@ -113,7 +113,7 @@ public class UsersManager {
         }
 
         // Si el nombre es nulo, asignamos "No Name"
-        if (name != null && !name.isEmpty()) {
+        if (name != null && name.isEmpty()) {
             values.put(FavoritesDatabaseHelper.COLUMN_NAME, name);
 
         }

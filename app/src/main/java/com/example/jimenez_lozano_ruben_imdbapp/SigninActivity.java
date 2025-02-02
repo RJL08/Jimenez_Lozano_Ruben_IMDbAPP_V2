@@ -672,12 +672,12 @@ public class SigninActivity extends AppCompatActivity {
                             String address = "";  // Asignamos vacío como valor predeterminado para la dirección
                             String phone = "";    // Asignamos vacío como valor predeterminado para el teléfono
                             // Obtener la fecha y hora actual formateada como login time
-
+                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
 
                             // Guardar datos del usuario en SharedPreferences
                             saveUserDataToPreferences(user.getDisplayName(), user.getEmail(), photoUrl, providerId, user.getUid()//********
                             );
-                            String loginTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+
 
                             // Registrar usuario y sincronizar
                             UsersManager usersManager = new UsersManager(this);

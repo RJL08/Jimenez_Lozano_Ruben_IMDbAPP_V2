@@ -62,7 +62,7 @@
             android:layout_height="wrap_content"
             app:ccp_showFlag="true"
             app:ccp_showNameCode="false"
-            app:ccp_defaultNameCode="US"/>
+            app:ccp_defaultNameCode="ES"/>
 
         <EditText
             android:id="@+id/etPhone"
