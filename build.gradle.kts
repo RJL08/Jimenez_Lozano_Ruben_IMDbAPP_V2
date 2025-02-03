@@ -6,16 +6,21 @@ plugins {
 
 buildscript {
     repositories {
+        google() // Repositorio de Google
+        mavenCentral() // Repositorio central de Maven
 
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.0.0") // Versión de Gradle, ajusta si es necesario
         classpath("com.google.gms:google-services:4.3.15") // Firebase/Google Services
+        classpath ("com.google.gms:google-services:4.4.2")  //Cloud firestore
     }
 }
 
 allprojects {
     repositories {
+        google() // Repositorio de Google
+        mavenCentral() // Repositorio central de Maven
 
     }
 }

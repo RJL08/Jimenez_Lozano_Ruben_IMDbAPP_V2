@@ -1,7 +1,5 @@
 package com.example.jimenez_lozano_ruben_imdbapp;
 
-import static android.content.Intent.getIntent;
-
 
 import android.content.Context;
 import android.content.Intent;
@@ -12,7 +10,7 @@ import android.util.Log;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.LinearLayoutManager;
+
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesManager;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
@@ -68,8 +66,13 @@ public class MovieListActivity extends AppCompatActivity {
                     // onLongClick: para añadir la pelicula a favoritos
                     SharedPreferences prefs = getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
                     String userEmail = prefs.getString("userEmail", "");
+                    String userId = prefs.getString("userId", "");//********
 
-                    if (userEmail.isEmpty()) {
+                    // Log para verificar los valores recuperados
+                    Log.d("DebugUserId", "userId recuperado sharedpreerences MovieListActivity: " + userId);
+                    Log.d("DebugUserEmail", "userEmail recuperado sharedpreerences MovieListActivity: " + userEmail);
+
+                    if (userId.isEmpty()) {
                         Toast.makeText(this, "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
                         return;
                     }
@@ -77,7 +80,7 @@ public class MovieListActivity extends AppCompatActivity {
                     FavoritesManager favoritesManager = new FavoritesManager(this);
 
                     // Obtenemos la lista actual de favoritos
-                    Cursor cursor = favoritesManager.getFavoritesCursor(userEmail);
+                    Cursor cursor = favoritesManager.getFavoritesCursor(userId);
                     List<Movies> existingFavorites = favoritesManager.getFavoritesList(cursor);
 
                     // Cerramos el cursor y asi liberamos recuersos
@@ -100,15 +103,20 @@ public class MovieListActivity extends AppCompatActivity {
                     }
 
                     try {
+                        Log.d("DebugDetailActivity", "userId recuperado antes de añadir a favoritos: " + userId);
+                        Log.d("DebugHomeDetailActivity", "userEmail recuperado antes de añadir a favoritos: " + userEmail);
+
                         // Añadimos la pelicula a favoritos
                         boolean added = favoritesManager.addFavorite(
-                                movie.getId(),              // Nuevo argumento: ID de la película
+                                movie.getId(),              // Nuevo argumento: ID de la películ
                                 userEmail,                  // Email del usuario
                                 movie.getTitle(),           // Título de la pelicula
                                 movie.getImageUrl(),        // URL de la imagen
                                 movie.getReleaseYear(),     // Fecha de lanzamiento
                                 movie.getRating(),          // Puntuacion
-                                movie.getOverview()         // Nuevo argumento: Descripción de la película
+                                movie.getOverview(),       // Nuevo argumento: Descripción de la película
+                                userId
+
                         );
 
                         if (added) {

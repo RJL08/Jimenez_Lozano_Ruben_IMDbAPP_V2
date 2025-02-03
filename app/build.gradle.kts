@@ -55,7 +55,6 @@ dependencies {
     implementation(libs.navigation.ui)
     implementation(libs.play.services.base)
     implementation(libs.firebase.auth)
-    implementation (libs.play.services.auth)
     implementation(libs.activity)
     implementation(libs.play.services.auth)
     implementation(libs.glide)
@@ -63,9 +62,20 @@ dependencies {
     implementation (libs.retrofit)
     implementation (libs.converter.gson)
     implementation ("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation ("com.facebook.android:facebook-android-sdk:[12.0.0,13.0.0)")
+    implementation ("com.facebook.android:facebook-login:12.3.0,13.0.0")
+    implementation ("com.facebook.android:facebook-login:[8,9)")
     implementation(libs.recyclerview)
+    implementation(libs.firebase.firestore)
     annotationProcessor(libs.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation ("com.squareup.picasso:picasso:2.71828")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation ("com.google.android.gms:play-services-maps:17.0.1")
+    implementation ("com.google.android.libraries.places:places:2.6.0")
+    implementation ("com.hbb20:ccp:2.5.0")
+
 }
+

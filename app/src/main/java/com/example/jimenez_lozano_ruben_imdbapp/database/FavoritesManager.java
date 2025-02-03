@@ -4,9 +4,13 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +24,7 @@ public class FavoritesManager {
 
     // Declaramos el helper de la base de datos
     private FavoritesDatabaseHelper dbHelper;
+    private Context context;
 
     /**
      * Constructor que inicializa el gestor de favoritos con el contexto proporcionado.
@@ -27,6 +32,8 @@ public class FavoritesManager {
      * @param context El contexto de la aplicación o actividad.
      */
     public FavoritesManager(Context context) {
+
+        this.context = context;
         dbHelper = new FavoritesDatabaseHelper(context);
     }
 
@@ -41,19 +48,27 @@ public class FavoritesManager {
      * @param overview    La descripción de la pelicula.
      * @return true si la pelicula se añadio correctamente, false en caso contrario.
      */
-    public boolean addFavorite(String id, String userEmail, String movieTitle, String movieImage, String releaseDate, String movieRating, String overview) {
+    public boolean addFavorite(String id, String userEmail, String movieTitle, String movieImage, String releaseDate, String movieRating, String overview, String userId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put(FavoritesDatabaseHelper.COLUMN_ID, id);
+        values.put(FavoritesDatabaseHelper.COLUMN_FAVORITE_ID, id);
         values.put(FavoritesDatabaseHelper.COLUMN_USER_EMAIL, userEmail);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE, movieTitle);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_IMAGE, movieImage);
         values.put(FavoritesDatabaseHelper.COLUMN_RELEASE_DATE, releaseDate);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_RATING, movieRating);
         values.put(FavoritesDatabaseHelper.COLUMN_MOVIE_OVERVIEW, overview);
+        values.put(FavoritesDatabaseHelper.COLUMN_USER_ID, userId);//********
 
-        long result = db.insert(FavoritesDatabaseHelper.TABLE_NAME, null, values);
-        db.close();
+
+        long result = db.insert(FavoritesDatabaseHelper.TABLE_FAVORITES, null, values);
+
+       db.close();
+        // Sincronizar con Firestore
+
+        FavoritesSync favoritesSync = new FavoritesSync();
+        favoritesSync.syncLocalToFirestore(context, dbHelper);
+
         // Devolvemos true si la inserción fue exitosaosa
         return result != -1;
     }
@@ -67,11 +82,17 @@ public class FavoritesManager {
     public boolean removeFavorite(String userEmail, String movieTitle) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         int rowsDeleted = db.delete(
-                FavoritesDatabaseHelper.TABLE_NAME,
-                FavoritesDatabaseHelper.COLUMN_USER_EMAIL + "=? AND " + FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE + "=?",
+                FavoritesDatabaseHelper.TABLE_FAVORITES,
+                FavoritesDatabaseHelper.COLUMN_USER_ID + "=? AND " + FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE + "=?", //*******
                 new String[]{userEmail, movieTitle}
         );
         db.close();
+        // Sincronizar con Firestore
+        if (rowsDeleted > 0) {
+           new FavoritesSync().syncLocalToFirestore(context, dbHelper);
+        }
+
+
         return rowsDeleted > 0;
     }
 
@@ -79,18 +100,21 @@ public class FavoritesManager {
     /**
      * Recuperamos mediante un cursor con las peliculas favoritas del usuario desde la base de datos.
      * Consiguiendo que cada usuario tenga su propia lista de fovirtos
-     * @param userEmail El correo del usuario actual.
+     * @param userId El id del usuario actual.
      * @return Un cursor con los registros de las películas favoritas.
      */
-    public Cursor getFavoritesCursor(String userEmail) {
+    public Cursor getFavoritesCursor(String userId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
+
         return db.query(
-                FavoritesDatabaseHelper.TABLE_NAME,
+                // Nombre de la tabla
+                FavoritesDatabaseHelper.TABLE_FAVORITES,
                 null,
-                FavoritesDatabaseHelper.COLUMN_USER_EMAIL + " = ?",
-                new String[]{userEmail},
+                FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",//******
+                new String[]{userId},
                 null, null, null
         );
+
     }
 
     /**
@@ -103,7 +127,7 @@ public class FavoritesManager {
         if (cursor != null && cursor.moveToFirst()) {
             do {
                 Movies movie = new Movies();
-                movie.setId(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_ID)));
+                movie.setId(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_FAVORITE_ID)));
                 movie.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_MOVIE_TITLE)));
                 movie.setImageUrl(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_MOVIE_IMAGE)));
                 movie.setReleaseYear(cursor.getString(cursor.getColumnIndexOrThrow(FavoritesDatabaseHelper.COLUMN_RELEASE_DATE)));
@@ -115,4 +139,50 @@ public class FavoritesManager {
         }
         return favoriteMovies;
     }
+
+    /**
+     * Metodo para eliminar una pelicula de la base de datos local y de Firestore.
+     * @param userId
+     * @param movieId
+     * @return
+     */
+    public boolean deleteMovie(String userId, String movieId) {
+        boolean isDeletedFromLocal = false;
+
+        try {
+            // 1. Eliminar de la base de datos local
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            int rowsDeleted = db.delete(
+                    FavoritesDatabaseHelper.TABLE_FAVORITES,
+                    FavoritesDatabaseHelper.COLUMN_USER_ID + "=? AND " + FavoritesDatabaseHelper.COLUMN_FAVORITE_ID + "=?",
+                    new String[]{userId, movieId}
+            );
+            db.close();
+
+            if (rowsDeleted > 0) {
+                isDeletedFromLocal = true;
+                Log.d("DeleteMovie", "Película eliminada de SQLite: " + movieId);
+            } else {
+                Log.e("DeleteMovie", "Error al eliminar de SQLite. movieId: " + movieId + ", userId: " + userId);
+            }
+
+            // 2. Eliminar de Firestore si fue eliminada de SQLite
+            if (isDeletedFromLocal) {
+                FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+                firestore.collection("favorites")
+                        .document(userId)
+                        .collection("movies")
+                        .document(movieId)
+                        .delete()
+                        .addOnSuccessListener(aVoid -> Log.d("DeleteMovie", "Película eliminada de Firestore: " + movieId))
+                        .addOnFailureListener(e -> Log.e("DeleteMovie", "Error al eliminar de Firestore: " + e.getMessage(), e));
+            }
+        } catch (Exception e) {
+            Log.e("DeleteMovie", "Error general al eliminar película: " + e.getMessage(), e);
+        }
+
+        return isDeletedFromLocal;
+    }
 }
+
+

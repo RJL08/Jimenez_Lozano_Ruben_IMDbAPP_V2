@@ -1,19 +1,31 @@
 package com.example.jimenez_lozano_ruben_imdbapp;
 
 import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteDatabase;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.Menu;
 import android.view.ViewGroup;
+import android.webkit.CookieManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
-import com.bumptech.glide.Glide;
+
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.UsersSync;
+import com.example.jimenez_lozano_ruben_imdbapp.utils.AppLifecycleManager;
+import com.facebook.AccessToken;
+import com.facebook.FacebookSdk;
+import com.facebook.GraphRequest;
+import com.facebook.HttpMethod;
+import com.facebook.login.LoginManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.material.navigation.NavigationView;
@@ -24,6 +36,17 @@ import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 import com.example.jimenez_lozano_ruben_imdbapp.databinding.ActivityMainBinding;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.squareup.picasso.Picasso;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
+
 @SuppressWarnings("deprecation")
 
 
@@ -38,10 +61,23 @@ public class MainActivity extends AppCompatActivity {
     // Declaracion de variables
     private AppBarConfiguration mAppBarConfiguration;
     private ActivityMainBinding binding;
+    private AppLifecycleManager appLifecycleManager;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Inicializa el SDK de Facebook
+        FacebookSdk.sdkInitialize(getApplicationContext());
+
+
+        //llamada a la clase AppLifecycleManager
+        appLifecycleManager = new AppLifecycleManager(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            registerActivityLifecycleCallbacks(appLifecycleManager);
+        }
+
 
         // Inflamos el layout principal
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -52,12 +88,17 @@ public class MainActivity extends AppCompatActivity {
         String userName = intent.getStringExtra("user_name");
         String userEmail = intent.getStringExtra("user_email");
         String userPhotoUrl = intent.getStringExtra("user_photo");
+        String providerId = intent.getStringExtra("provider");
+
+        mostrarDatosUsuario(userName, userEmail, userPhotoUrl);
 
         // Configuramos el NavigationView
         NavigationView navigationView = binding.navView;
         // Accedemos al encabezado del NavigationView
         View headerView = navigationView.getHeaderView(0);
         LinearLayout headerLayout = headerView.findViewById(R.id.header_container);
+
+
 
         // Obtenemos la altura del notch (si existe)
         int statusBarHeight = 0;
@@ -78,45 +119,58 @@ public class MainActivity extends AppCompatActivity {
         TextView emailTextView = headerView.findViewById(R.id.user_email);
         Button logoutButton = headerView.findViewById(R.id.logout_button);
 
-        // Mostramos los datos del usuario en las vistas
         if (userName != null) {
             nameTextView.setText(userName);
         }
-        // Mostramos el correo electronico del usuario
         if (userEmail != null) {
             emailTextView.setText(userEmail);
-            Toast.makeText(this, "Welcome: " + userEmail, Toast.LENGTH_SHORT).show();
-            Log.d("MainActivity", "User Email: " + userEmail);
+        }
+        // Cargar la imagen en el header con la condición para URL remota o ruta local
+        if (userPhotoUrl != null && !userPhotoUrl.isEmpty()) {
+            if (userPhotoUrl.startsWith("http://") || userPhotoUrl.startsWith("https://")) {
+                // Se asume que es una URL remota
+                Picasso.get()
+                        .load(userPhotoUrl)
+                        .placeholder(R.drawable.esperando)
+                        .error(R.drawable.ic_launcher_foreground)
+                        .into(profileImageView);
+            } else {
+                // Se asume que es una ruta local
+                File imageFile = new File(userPhotoUrl);
+                if (imageFile.exists()) {
+                    Picasso.get()
+                            .load(imageFile)
+                            .placeholder(R.drawable.esperando)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                } else {
+                    // Si el archivo no existe, se intenta cargar anteponiendo "file://"
+                    String fileUri = "file://" + userPhotoUrl;
+                    Picasso.get()
+                            .load(fileUri)
+                            .placeholder(R.drawable.esperando)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                }
+            }
+        } else {
+            // Si no hay URL de foto, se asigna una imagen por defecto
+            profileImageView.setImageResource(R.drawable.ic_launcher_foreground);
         }
 
-        if (userPhotoUrl != null) {
-            // Usar Glide para cargar la imagen del usuario en el ImageView
-            Glide.with(this)
-                    .load(userPhotoUrl)
-                    .placeholder(R.drawable.ic_launcher_background) // Imagen por defecto
-                    .error(R.drawable.ic_launcher_foreground) // Imagen de error
-                    .into(profileImageView);
-        }
+
+
+
         // Configuramos el boton de logout para cerrar sesion
         logoutButton.setOnClickListener(v -> {
-            // Limpiamos el estado de inicio de sesión en SharedPreferences
-            SharedPreferences.Editor editor = getSharedPreferences("MyAppPrefs", MODE_PRIVATE).edit();
-            // Eliminamos todas las preferencias
-            editor.clear();
-            // Confirmamos los cambios
-            editor.apply();
+            // Obtener el proveedor (Google o Facebook) desde SharedPreferences
+            // Obtener el proveedor (Google o Facebook) desde SharedPreferences
+            SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+            String logoutProviderId = prefs.getString("provider", ""); // Renombrar la variable
 
-            // Cerramos sesion con google
-            GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
-                    .addOnCompleteListener(task -> {
-                        // Regresamos a signinactivity
-                        Intent signOutIntent = new Intent(MainActivity.this, SigninActivity.class);
-                        signOutIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK); // Limpia la pila de actividades
-                        startActivity(signOutIntent);
-                        // Finalizamos mainactivity
-                        finish();
+            // Llamar al método realizarLogout con el proveedor correspondiente
+            realizarLogout(logoutProviderId);
                     });
-        });
 
         // Configuramos la barra de herramientas
         setSupportActionBar(binding.appBarMain.toolbar);
@@ -156,6 +210,233 @@ public class MainActivity extends AppCompatActivity {
 
             return false;
         });
+    }
+
+
+    /**
+     * Recupera los datos del usuario desde SharedPreferences.
+     */
+    private void mostrarDatosUsuario(String userName, String userEmail, String userPhotoUrl) {
+        // Configuramos el NavigationView
+        NavigationView navigationView = binding.navView;
+        View headerView = navigationView.getHeaderView(0);
+
+        // Inicializamos las vistas del encabezado
+        ImageView profileImageView = headerView.findViewById(R.id.imageView);
+        TextView nameTextView = headerView.findViewById(R.id.user_name);
+        TextView emailTextView = headerView.findViewById(R.id.user_email);
+
+        // Mostrar nombre y correo
+        nameTextView.setText(userName != null ? userName : "Nombre no disponible");
+        emailTextView.setText(userEmail != null ? userEmail : "Correo no disponible");
+
+        // Condición para cargar la imagen:
+        // Si userPhotoUrl no es nulo ni vacío, procedemos a cargarla
+        if (userPhotoUrl != null && !userPhotoUrl.isEmpty()) {
+            // Si la cadena comienza con "http://" o "https://", se asume que es una URL remota
+            if (userPhotoUrl.startsWith("http://") || userPhotoUrl.startsWith("https://")) {
+                Picasso.get()
+                        .load(userPhotoUrl)
+                        .placeholder(R.drawable.esperando)
+                        .error(R.drawable.ic_launcher_foreground)
+                        .into(profileImageView);
+            } else {
+                // Se asume que es una ruta local
+                File imageFile = new File(userPhotoUrl);
+                if (imageFile.exists()) {
+                    // Cargar la imagen usando el objeto File
+                    Picasso.get()
+                            .load(imageFile)
+                            .placeholder(R.drawable.esperando)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                } else {
+                    // Si el archivo no existe, se intenta cargar anteponiendo "file://"
+                    String fileUri = "file://" + userPhotoUrl;
+                    Picasso.get()
+                            .load(fileUri)
+                            .placeholder(R.drawable.ic_launcher_background)
+                            .error(R.drawable.ic_launcher_foreground)
+                            .into(profileImageView);
+                }
+            }
+        } else {
+            // Si no se proporciona userPhotoUrl, se asigna una imagen por defecto
+            profileImageView.setImageResource(R.drawable.ic_launcher_foreground);
+        }
+        new UsersSync().syncLocalToFirestore(this, new FavoritesDatabaseHelper(this));
+    }
+
+
+
+    private void finalizarSesion() {
+
+        // Obtener el user_id del usuario actual desde SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+        String userId = prefs.getString("userId", "");
+
+        // Obtener el tiempo de logout actual
+        String logoutTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                .format(new Date());
+
+        // Actualizar la base de datos con el tiempo de logout
+        if (!userId.isEmpty()) {
+            updateLogoutTimeInDatabase(userId, logoutTime);
+        }
+
+        // Cerrar sesión de Firebase
+        FirebaseAuth.getInstance().signOut();
+
+
+        // Limpiar SharedPreferences
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.clear();
+        editor.apply();
+
+        // Regresar a la pantalla de inicio de sesión
+        Intent intent = new Intent(MainActivity.this, SigninActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish(); // Finalizamos la actividad actual
+    }
+
+    /**
+     * Actualiza el tiempo de logout en la base de datos.
+     * @param userId
+     * @param logoutTime
+     */
+    private void updateLogoutTimeInDatabase(String userId, String logoutTime) {
+        // Instancia del helper para la base de datos de usuarios (ahora en favorites_db)
+        FavoritesDatabaseHelper dbHelper = new FavoritesDatabaseHelper(this);
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        // Crear valores para actualizar
+        ContentValues values = new ContentValues();
+        values.put(FavoritesDatabaseHelper.COLUMN_LOGOUT_TIME, logoutTime); // Actualizamos logout_time en la tabla de usuarios
+
+        // Actualizar el tiempo de logout para el user_id correspondiente en la nueva base de datos
+        int rowsUpdated = db.update(
+                FavoritesDatabaseHelper.TABLE_USERS, // Tabla de usuarios en la nueva base de datos
+                values,
+                FavoritesDatabaseHelper.COLUMN_USER_ID + " = ?",
+                new String[]{userId}
+        );
+        if (rowsUpdated > 0) {
+            Log.d("Logout", "Logout time actualizado correctamente para user_id: " + userId);
+        } else {
+            Log.e("Logout", "Error al actualizar el logout time para user_id: " + userId);
+        }
+
+        // Cerrar la base de datos
+        db.close();
+    }
+
+
+
+
+    /**
+     * Realiza un logout efectivo basado en el proveedor de inicio de sesión.************
+     */
+
+        private void realizarLogout(String providerId) {
+            if ("google.com".equals(providerId)) {
+                // Obtener el userId desde SharedPreferences
+                SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+                String userId = prefs.getString("userId", "");
+                String logoutTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+
+                // Registrar el logout_time en la base de datos
+                if (!userId.isEmpty()) {
+                    updateLogoutTimeInDatabase(userId, logoutTime);
+                }
+                // Cerrar sesión de Google
+                GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .revokeAccess()
+                        .addOnCompleteListener(task -> finalizarSesion());
+                // Limpiar cookies asociadas al navegador (para sesiones web)
+                CookieManager cookieManager = CookieManager.getInstance();
+                cookieManager.removeAllCookies(null);
+                cookieManager.flush();
+            } else if ("facebook.com".equals(providerId)) {
+                // Cerrar sesión de Facebook
+                logoutFacebook();
+            } else {
+                // Otros proveedores o caso por defecto
+                finalizarSesion();
+            }
+        }
+
+    private void logoutFacebook() {
+
+        AccessToken accessToken = AccessToken.getCurrentAccessToken();
+        if (accessToken == null || accessToken.isExpired()) {
+            Log.e("FacebookLogout", "El token de acceso de Facebook es inválido o ha caducado.");
+            finalizarSesion();
+            return;
+        }
+        if (AccessToken.getCurrentAccessToken() != null) {
+
+            // Revocar permisos del usuario mediante GraphRequest
+            new GraphRequest(
+                    AccessToken.getCurrentAccessToken(),
+                    "/me/permissions/",
+                    null,
+
+                    HttpMethod.DELETE,
+                    response -> {
+                        if (response != null && response.getError() == null) {
+                            // Cerrar sesión del SDK de Facebook
+                            LoginManager.getInstance().logOut();
+
+                            // Limpiar cookies asociadas al navegador (para sesiones web)
+                            CookieManager cookieManager = CookieManager.getInstance();
+                            cookieManager.removeAllCookies(null);
+                            cookieManager.flush();
+
+                            // Redirigir al usuario al inicio de sesión
+                            finalizarSesion();
+                        } else {
+                            // Manejar errores en la revocación de permisos
+                            // Puedes mostrar un mensaje o loguear el error
+                            Log.e("FacebookLogout", "Error al revocar permisos: " + response.getError());
+                        }
+                    }
+            ).executeAsync();
+        } else {
+            // Si no hay sesión activa, simplemente finaliza la sesión
+            finalizarSesion();
+        }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Verifica si se seleccionó "Edit User" desde el menú
+        if (item.getItemId() == R.id.action_edit_user) {
+            // Crear un Intent para abrir EditUserActivity
+            Intent intent = new Intent(MainActivity.this, EditUserActivity.class);
+
+            // Obtener los datos del usuario desde SharedPreferences (o de donde los tengas almacenados)
+            SharedPreferences prefs = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+            String userName = prefs.getString("user_name", "");
+            String userEmail = prefs.getString("user_email", "");
+            String userAddress = prefs.getString("user_address", "");
+            String userPhone = prefs.getString("user_phone", "");
+            String userProfileImageUrl = prefs.getString("user_profile_image_url", "");
+
+            // Pasar los datos al Intent
+            intent.putExtra("user_name", userName);
+            intent.putExtra("user_email", userEmail);
+            intent.putExtra("user_address", userAddress);
+            intent.putExtra("user_phone", userPhone);
+            intent.putExtra("user_profile_image_url", userProfileImageUrl);
+            // Iniciar la actividad EditUserActivity
+            startActivity(intent);
+
+
+            return true; // Indica que el ítem ha sido manejado
+        }
+
+        return super.onOptionsItemSelected(item); // Llamada por defecto para otros ítems
     }
 
     /**

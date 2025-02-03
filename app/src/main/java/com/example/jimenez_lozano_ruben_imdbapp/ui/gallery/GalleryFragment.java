@@ -24,9 +24,12 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import android.Manifest;
+
+import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesDatabaseHelper;
 import com.example.jimenez_lozano_ruben_imdbapp.database.FavoritesManager;
 import com.example.jimenez_lozano_ruben_imdbapp.databinding.FragmentGalleryBinding;
 import com.example.jimenez_lozano_ruben_imdbapp.models.Movies;
+import com.example.jimenez_lozano_ruben_imdbapp.sync.FavoritesSync;
 import com.example.jimenez_lozano_ruben_imdbapp.ui.adapter.FavoritesAdapter;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -52,9 +55,12 @@ public class GalleryFragment extends Fragment {
         // Inicializamos el ViewModel
         GalleryViewModel galleryViewModel = new ViewModelProvider(this).get(GalleryViewModel.class);
 
+
         // Inflamos el diseño usando ViewBinding
         binding = FragmentGalleryBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
+
+
 
         // Configuramos el RecyclerView
         recyclerView = binding.recyclerViewFavorites;
@@ -197,15 +203,15 @@ public class GalleryFragment extends Fragment {
         // Obtenemos el correo del usuario actual desde SharedPreferences
         SharedPreferences prefs = requireContext().getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
         String userEmail = prefs.getString("userEmail", ""); // Obtiene el correo del usuario actual
-
-        if (userEmail.isEmpty()) {
+        String userId = prefs.getString("userId", ""); // Obtener el userId del usuario************
+        if (userId.isEmpty()) {
             Toast.makeText(getContext(), "Error: Usuario no identificado", Toast.LENGTH_SHORT).show();
             Log.e("GalleryFragment", "Error: Correo del usuario vacío");
             return;
         }
 
         // Cargamos favoritos del usuario
-        Cursor cursor = favoritesManager.getFavoritesCursor(userEmail);
+        Cursor cursor = favoritesManager.getFavoritesCursor(userId);
         // Si hay favoritos cargados los agregamos a la lista y notificamos al adaptador los cambios
         if (cursor != null && cursor.getCount() > 0) {
             favoriteList.clear();
@@ -213,7 +219,7 @@ public class GalleryFragment extends Fragment {
             adapter.notifyDataSetChanged(); // Actualizar el RecyclerView
             Log.d("GalleryFragment", "Favoritos cargados correctamente: " + favoriteList.size());
         } else {
-            Log.d("GalleryFragment", "No hay favoritos para el usuario: " + userEmail);
+            Log.d("GalleryFragment", "No hay favoritos para el usuario: " + userId);
             Toast.makeText(getContext(), "No tienes películas favoritas", Toast.LENGTH_SHORT).show();
         }
     }
